@@ -180,6 +180,9 @@ let S = {
   frCompForm:{id:"",label:"",category:"Componente",um:"buc",initial:0,sectie:"Componente",resin:""},
   frProdForm:{id:"",label:"",gama:"BIOFIBROMAR",volum:"",initial:0,standardManhole:"gura_dn520",recipeText:""},
   frEventForm:{targetId:"",qty:"",date:new Date().toISOString().slice(0,10),by:"",client:"",manholeId:"gura_dn520",note:""},
+  frBatchDate:new Date().toISOString().slice(0,10), frBatchBy:"",
+  frCompBatch:[], frCompBatchRow:{componentId:"",qty:""},
+  frAsmBatch:[], frAsmBatchRow:{productId:"",qty:"",manholeId:"gura_dn520"},
   showFrCompForm:false, editFrCompId:null, showFrProdForm:false, editFrProdId:null
 };
 
@@ -1064,18 +1067,11 @@ function renderFoseRez(isGest,activeUser){
     });
   }
   if(S.frTab==="componente"){
-    const ef=S.frEventForm;const opts=comps.map(c=>`<option value="${c.id}"${ef.targetId===c.id?' selected':''}>${esc(c.label)} - stoc: ${fmt(calcFrCompStock(c.id))}</option>`).join("");
-    html+=`<div class="card" style="border:2px solid #00695C"><div class="section-title" style="color:#00695C">Inregistreaza productie componenta</div><div class="form-grid g4"><div class="field"><label>Componenta</label><select id="fr-cid" onchange="frSet('targetId',this.value)"><option value="">Selectati</option>${opts}</select></div><div class="field"><label>Cantitate produsa</label><input id="fr-qty" type="number" step="0.01" min="0" value="${esc(ef.qty)}" oninput="frSet('qty',this.value)"></div><div class="field"><label>Data</label><input type="date" value="${ef.date}" onchange="frSet('date',this.value)"></div><div class="field"><label>Operator</label><input value="${esc(ef.by||(activeUser?activeUser.name:''))}" oninput="frSet('by',this.value)"></div></div><button class="btn primary" style="background:#00695C" onclick="frSaveComponentProd()">Salveaza productia</button></div>`;
+    html+=renderFrComponentBatch(comps,activeUser);
     html+=renderFrRecent("component_prod");
   }
   if(S.frTab==="asamblare"){
-    const ef=S.frEventForm,p=frProd(ef.targetId), manholes=comps.filter(c=>c.category==="Guri vizitare");
-    const opts=products.map(p=>`<option value="${p.id}"${ef.targetId===p.id?' selected':''}>${esc(p.label)} - finit: ${fmt(calcFrProductStock(p.id))}</option>`).join("");
-    const mopts=manholes.map(c=>`<option value="${c.id}"${(ef.manholeId||"gura_dn520")===c.id?' selected':''}>${esc(c.label)}</option>`).join("");
-    const max=p?frMaxBuild(p,ef.manholeId):0, qty=parseFloat(ef.qty)||0;
-    html+=`<div class="card" style="border:2px solid #185FA5"><div class="section-title" style="color:#185FA5">Asambleaza fosa / rezervor</div><div class="form-grid g3"><div class="field"><label>Produs</label><select onchange="frSet('targetId',this.value)"><option value="">Selectati</option>${opts}</select></div><div class="field"><label>Gura vizitare</label><select onchange="frSet('manholeId',this.value)">${mopts}</select><div class="hint">DN520 este standard; DN800/DN1000 se pot alege optional.</div></div><div class="field"><label>Cantitate</label><input type="number" step="1" min="1" value="${esc(ef.qty)}" oninput="frSet('qty',this.value)"><div class="hint ${qty>max?'err':'ok'}">Max posibil: <strong>${fmt(max)}</strong></div></div></div><div class="form-grid g2"><div class="field"><label>Data</label><input type="date" value="${ef.date}" onchange="frSet('date',this.value)"></div><div class="field"><label>Operator</label><input value="${esc(ef.by||(activeUser?activeUser.name:''))}" oninput="frSet('by',this.value)"></div></div>`;
-    if(p){html+=`<div style="background:#f8f9fa;border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px">${frRecipeWithOptions(p,ef.manholeId).map(r=>{const c=frComp(r.componentId),need=(+r.qty||0)*(qty||1),st=calcFrCompStock(r.componentId);return `<div class="bc-row"><span class="lbl">${esc(c?c.label:r.componentId)} x ${fmt(r.qty)}</span><span class="val ${need>st?'bad':'ok'}">necesar ${fmt(need)} / stoc ${fmt(st)}</span></div>`;}).join("")}</div>`;}
-    html+=`<button class="btn primary" style="background:#185FA5" onclick="frSaveAssembly()">Confirma asamblarea</button></div>`;
+    html+=renderFrAssemblyBatch(products,comps,activeUser);
     html+=renderFrRecent("product_assembly");
   }
   if(S.frTab==="vanzare"){
@@ -1093,6 +1089,61 @@ function renderFoseRez(isGest,activeUser){
   }
   return html;
 }
+function renderFrComponentBatch(comps,activeUser){
+  const br=S.frCompBatchRow, batch=S.frCompBatch;
+  const opts=comps.map(c=>`<option value="${c.id}"${br.componentId===c.id?' selected':''}>${esc(c.label)} - stoc: ${fmt(calcFrCompStock(c.id))}</option>`).join("");
+  let h=`<div class="card" style="border:2px solid #00695C"><div class="section-title" style="color:#00695C">Productie componente - introducere in lot</div>
+    <div class="form-grid g2"><div class="field"><label>Data pentru tot lotul</label><input type="date" value="${S.frBatchDate}" onchange="S.frBatchDate=this.value"></div><div class="field"><label>Operator pentru tot lotul</label><input value="${esc(S.frBatchBy||(activeUser?activeUser.name:''))}" oninput="S.frBatchBy=this.value"></div></div>
+    <div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:12px"><div style="font-size:12px;font-weight:600;color:#555;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Adauga rand</div><div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+      <div class="field" style="flex:2;min-width:180px"><label>Componenta</label><select onchange="frCompBatchSet('componentId',this.value)"><option value="">Selectati</option>${opts}</select></div>
+      <div class="field" style="flex:1;min-width:110px"><label>Cantitate produsa</label><input type="number" step="0.01" min="0" value="${esc(br.qty)}" oninput="frCompBatchSet('qty',this.value)"></div>
+      <button class="btn primary" style="background:#00695C;flex-shrink:0" onclick="frCompBatchAdd()">+ Adauga</button>
+    </div></div>`;
+  if(batch.length===0)h+=`<div style="text-align:center;padding:16px;color:#aaa;font-size:13px;background:#f8f9fa;border-radius:8px;margin-bottom:12px">Lista este goala - adaugati componente produse folosind formularul de mai sus</div>`;
+  else{
+    h+=`<div style="overflow-x:auto;margin-bottom:12px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f0f2f5"><th style="padding:8px 10px;text-align:left;border-bottom:2px solid #e0e0e0">Componenta</th><th style="padding:8px 10px;text-align:center;border-bottom:2px solid #e0e0e0">Cantitate</th><th style="width:40px;border-bottom:2px solid #e0e0e0"></th></tr></thead><tbody>`;
+    batch.forEach((r,i)=>{const c=frComp(r.componentId);h+=`<tr><td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-weight:500">${esc(c?c.label:r.componentId)}</td><td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f0f0f0;color:#00695C;font-weight:700">${fmt(r.qty)} ${esc(c?.um||'buc')}</td><td style="padding:4px;text-align:center;border-bottom:1px solid #f0f0f0"><button onclick="frCompBatchRemove(${i})" style="background:none;border:none;cursor:pointer;color:#f44336;font-size:16px;padding:2px 6px">×</button></td></tr>`;});
+    const total=batch.reduce((sum,r)=>sum+(+r.qty||0),0);h+=`<tr style="background:#e8f5e9;font-weight:700"><td style="padding:8px 10px;border-top:2px solid #c8e6c9">TOTAL (${batch.length} randuri)</td><td style="padding:8px 10px;text-align:center;border-top:2px solid #c8e6c9;color:#00695C">${fmt(total)} buc</td><td style="border-top:2px solid #c8e6c9"></td></tr></tbody></table></div>`;
+  }
+  h+=`<div class="flex-row"><button class="btn primary" style="background:#00695C${batch.length===0?';opacity:.5':''}" onclick="frCompBatchSave()">Salveaza tot (${batch.length} randuri)</button>${batch.length>0?'<button class="btn" onclick="frCompBatchClear()">Goleste lista</button>':''}</div></div>`;
+  return h;
+}
+function renderFrAssemblyBatch(products,comps,activeUser){
+  const br=S.frAsmBatchRow, batch=S.frAsmBatch, p=frProd(br.productId), manholes=comps.filter(c=>c.category==="Guri vizitare");
+  const opts=products.map(p=>`<option value="${p.id}"${br.productId===p.id?' selected':''}>${esc(p.label)} - finit: ${fmt(calcFrProductStock(p.id))}</option>`).join("");
+  const mopts=manholes.map(c=>`<option value="${c.id}"${(br.manholeId||"gura_dn520")===c.id?' selected':''}>${esc(c.label)}</option>`).join("");
+  const qty=parseInt(br.qty)||0, max=p?frMaxBuild(p,br.manholeId):0;
+  let h=`<div class="card" style="border:2px solid #185FA5"><div class="section-title" style="color:#185FA5">Asamblare produse finite - introducere in lot</div>
+    <div class="form-grid g2"><div class="field"><label>Data pentru tot lotul</label><input type="date" value="${S.frBatchDate}" onchange="S.frBatchDate=this.value"></div><div class="field"><label>Operator pentru tot lotul</label><input value="${esc(S.frBatchBy||(activeUser?activeUser.name:''))}" oninput="S.frBatchBy=this.value"></div></div>
+    <div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:12px"><div style="font-size:12px;font-weight:600;color:#555;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Adauga rand</div><div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+      <div class="field" style="flex:2;min-width:180px"><label>Produs finit</label><select onchange="frAsmBatchSet('productId',this.value)"><option value="">Selectati</option>${opts}</select></div>
+      <div class="field" style="flex:1;min-width:150px"><label>Gura vizitare</label><select onchange="frAsmBatchSet('manholeId',this.value)">${mopts}</select><div class="hint">DN520 standard; DN800/DN1000 optional.</div></div>
+      <div class="field" style="flex:1;min-width:110px"><label>Cantitate</label><input type="number" min="1" value="${esc(br.qty)}" oninput="frAsmBatchSet('qty',this.value)">${p?`<div class="hint ${qty>max?'err':'ok'}">Max simplu: <strong>${fmt(max)}</strong></div>`:''}</div>
+      <button class="btn primary" style="background:#185FA5;flex-shrink:0" onclick="frAsmBatchAdd()">+ Adauga</button>
+    </div></div>`;
+  if(p&&qty>0){h+=`<div style="background:#f8f9fa;border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px">${frRecipeWithOptions(p,br.manholeId).map(r=>{const c=frComp(r.componentId),need=(+r.qty||0)*qty,st=calcFrCompStock(r.componentId);return `<div class="bc-row"><span class="lbl">${esc(c?c.label:r.componentId)} x ${fmt(r.qty)}</span><span class="val ${need>st?'bad':'ok'}">necesar ${fmt(need)} / stoc ${fmt(st)}</span></div>`;}).join("")}</div>`;}
+  if(batch.length===0)h+=`<div style="text-align:center;padding:16px;color:#aaa;font-size:13px;background:#f8f9fa;border-radius:8px;margin-bottom:12px">Lista este goala - adaugati produse finite folosind formularul de mai sus</div>`;
+  else{
+    const needs=frBatchNeeds(batch);h+=`<div style="overflow-x:auto;margin-bottom:12px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f0f2f5"><th style="padding:8px 10px;text-align:left;border-bottom:2px solid #e0e0e0">Produs</th><th style="padding:8px 10px;text-align:center;border-bottom:2px solid #e0e0e0">Gura</th><th style="padding:8px 10px;text-align:center;border-bottom:2px solid #e0e0e0">Cantitate</th><th style="width:40px;border-bottom:2px solid #e0e0e0"></th></tr></thead><tbody>`;
+    batch.forEach((r,i)=>{const prod=frProd(r.productId), mh=frComp(r.manholeId);h+=`<tr><td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-weight:500">${esc(prod?prod.label:r.productId)}</td><td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f0f0f0">${esc(mh?mh.label:'DN520')}</td><td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f0f0f0;color:#185FA5;font-weight:700">${fmt(r.qty)}</td><td style="padding:4px;text-align:center;border-bottom:1px solid #f0f0f0"><button onclick="frAsmBatchRemove(${i})" style="background:none;border:none;cursor:pointer;color:#f44336;font-size:16px;padding:2px 6px">×</button></td></tr>`;});
+    const total=batch.reduce((sum,r)=>sum+(+r.qty||0),0);h+=`<tr style="background:#e3f2fd;font-weight:700"><td style="padding:8px 10px;border-top:2px solid #bbdefb">TOTAL (${batch.length} randuri)</td><td style="border-top:2px solid #bbdefb"></td><td style="padding:8px 10px;text-align:center;border-top:2px solid #bbdefb;color:#185FA5">${fmt(total)} produse</td><td style="border-top:2px solid #bbdefb"></td></tr></tbody></table></div>`;
+    h+=`<div style="background:#f8f9fa;border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px"><div style="font-weight:700;margin-bottom:6px;color:#555">Necesar total componente pentru lot</div>${Object.entries(needs).map(([cid,need])=>{const c=frComp(cid),st=calcFrCompStock(cid);return `<div class="bc-row"><span class="lbl">${esc(c?c.label:cid)}</span><span class="val ${need>st?'bad':'ok'}">${fmt(need)} / stoc ${fmt(st)}</span></div>`;}).join("")}</div>`;
+  }
+  h+=`<div class="flex-row"><button class="btn primary" style="background:#185FA5${batch.length===0?';opacity:.5':''}" onclick="frAsmBatchSave()">Confirma asamblarea (${batch.length} randuri)</button>${batch.length>0?'<button class="btn" onclick="frAsmBatchClear()">Goleste lista</button>':''}</div></div>`;
+  return h;
+}
+function frBatchNeeds(batch){const needs={};batch.forEach(r=>{const p=frProd(r.productId);if(!p)return;frRecipeWithOptions(p,r.manholeId).forEach(x=>{needs[x.componentId]=(needs[x.componentId]||0)+(+x.qty||0)*(+r.qty||0);});});return needs;}
+function frCompBatchSet(k,v){S.frCompBatchRow[k]=v;render();}
+function frAsmBatchSet(k,v){S.frAsmBatchRow[k]=v;if(k==="productId"){const p=frProd(v);S.frAsmBatchRow.manholeId=(p&&p.standardManhole)||"gura_dn520";}render();}
+function frCompBatchAdd(){const r=S.frCompBatchRow,q=parseFloat(r.qty)||0;if(!r.componentId||q<=0){showToast("Selectati componenta si cantitatea!");return;}S.frCompBatch.push({componentId:r.componentId,qty:q});S.frCompBatchRow={componentId:"",qty:""};render();}
+function frCompBatchRemove(i){S.frCompBatch.splice(i,1);render();}
+function frCompBatchClear(){S.frCompBatch=[];render();}
+function frCompBatchSave(){if(!S.frCompBatch.length){showToast("Lista este goala!");return;}const now=new Date(),date=S.frBatchDate||now.toISOString().slice(0,10),by=S.frBatchBy||(getActiveUser()||{name:""}).name,time=now.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'});S.frCompBatch.forEach((r,i)=>DB.foserez.events.push({id:Date.now()+i+Math.random(),type:"component_prod",componentId:r.componentId,qty:+r.qty||0,date,time,by}));const n=S.frCompBatch.length;S.frCompBatch=[];S.frCompBatchRow={componentId:"",qty:""};saveDB();showToast(n+" productii componente salvate!");render();}
+function frAsmBatchAdd(){const r=S.frAsmBatchRow,q=parseInt(r.qty)||0,p=frProd(r.productId);if(!p||q<=0){showToast("Selectati produsul si cantitatea!");return;}S.frAsmBatch.push({productId:r.productId,qty:q,manholeId:r.manholeId||p.standardManhole||"gura_dn520"});S.frAsmBatchRow={productId:"",qty:"",manholeId:"gura_dn520"};render();}
+function frAsmBatchRemove(i){S.frAsmBatch.splice(i,1);render();}
+function frAsmBatchClear(){S.frAsmBatch=[];render();}
+function frAsmBatchSave(){if(!S.frAsmBatch.length){showToast("Lista este goala!");return;}const needs=frBatchNeeds(S.frAsmBatch);for(const [cid,need] of Object.entries(needs)){if(need>calcFrCompStock(cid)){const c=frComp(cid);showToast("Stoc insuficient pentru "+(c?c.label:cid)+"!");return;}}const now=new Date(),date=S.frBatchDate||now.toISOString().slice(0,10),by=S.frBatchBy||(getActiveUser()||{name:""}).name,time=now.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'});S.frAsmBatch.forEach((r,i)=>DB.foserez.events.push({id:Date.now()+i+Math.random(),type:"product_assembly",productId:r.productId,qty:+r.qty||0,manholeId:r.manholeId,date,time,by}));const n=S.frAsmBatch.length;S.frAsmBatch=[];S.frAsmBatchRow={productId:"",qty:"",manholeId:"gura_dn520"};saveDB();showToast(n+" asamblari salvate, componentele au fost scazute!");render();}
+
 function renderFrRecent(type){const rows=(DB.foserez.events||[]).filter(e=>e.type===type).slice().reverse().slice(0,15);return rows.length?`<div style="font-size:12px;color:#aaa;margin:10px 0 6px;text-align:right">Ultimele ${rows.length} inregistrari</div>${rows.map(frEventRow).join("")}`:"";}
 function frEventRow(e){const isComp=e.type==="component_prod", item=isComp?frComp(e.componentId):frProd(e.productId);const cls=e.type==="product_sale"?"van":e.type==="product_assembly"?"imb":"prod";const color=e.type==="product_sale"?"#7B3F00":e.type==="product_assembly"?"#185FA5":"#00695C";return `<div class="ev-row ${cls}"><span class="badge" style="color:${color}">${isComp?'COMP':e.type==='product_assembly'?'ASM':'VAN'}</span><span style="flex:1;font-weight:500">${esc(item?item.label:'?')}</span><span style="font-weight:600;color:${color}">${fmt(e.qty)} buc</span><span style="font-size:11px;color:#888">${e.date} ${e.time||""}${e.by?" · "+esc(e.by):""}${e.client?" · "+esc(e.client):""}</span></div>`;}
 function renderFrSettings(){

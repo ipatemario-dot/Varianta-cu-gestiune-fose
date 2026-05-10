@@ -1,6 +1,63 @@
-const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+
+function createMiniExpress() {
+  const routes = [];
+  let staticDir = null;
+  const app = {
+    use(mw) { if (mw && mw.__staticDir) staticDir = mw.__staticDir; },
+    get(route, handler) { routes.push({ method: 'GET', route, handler }); },
+    post(route, handler) { routes.push({ method: 'POST', route, handler }); },
+    listen(port, host, cb) {
+      const server = http.createServer((req, res) => {
+        const chunks = [];
+        req.on('data', c => chunks.push(c));
+        req.on('end', () => {
+          const body = Buffer.concat(chunks).toString('utf8');
+          if (body) {
+            try { req.body = JSON.parse(body); } catch { req.body = {}; }
+          }
+          res.status = code => { res.statusCode = code; return res; };
+          res.json = obj => {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify(obj));
+          };
+          res.sendFile = file => {
+            fs.readFile(file, (err, data) => {
+              if (err) { res.statusCode = 404; res.end('Not found'); return; }
+              const ext = path.extname(file).toLowerCase();
+              const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8' };
+              res.setHeader('Content-Type', types[ext] || 'application/octet-stream');
+              res.end(data);
+            });
+          };
+          const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
+          const exact = routes.find(r => r.method === req.method && r.route === urlPath);
+          if (exact) return exact.handler(req, res);
+          if (staticDir && req.method === 'GET') {
+            const rel = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
+            const target = path.join(staticDir, rel);
+            if (target.startsWith(staticDir) && fs.existsSync(target) && fs.statSync(target).isFile()) return res.sendFile(target);
+          }
+          const wildcard = routes.find(r => r.method === req.method && r.route === '*');
+          if (wildcard) return wildcard.handler(req, res);
+          res.statusCode = 404; res.end('Not found');
+        });
+      });
+      return server.listen(port, host, cb);
+    }
+  };
+  return app;
+}
+
+let express;
+try { express = require('express'); }
+catch {
+  express = function() { return createMiniExpress(); };
+  express.json = () => null;
+  express.static = dir => ({ __staticDir: dir });
+}
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
