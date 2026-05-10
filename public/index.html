@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIBROMAR — Sistem de Productie</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e;min-height:100vh}
+.app{max-width:1000px;margin:0 auto;padding:14px}
+
+/* ── Overlay login ─────────────────────────────────────────────────────── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:100}
+.login-box{background:white;border-radius:14px;padding:32px 28px;width:360px;max-width:95vw;text-align:center}
+.login-box h2{font-size:20px;font-weight:700;margin-bottom:6px;color:#1A3A5C}
+.login-box p{font-size:13px;color:#777;margin-bottom:20px}
+.user-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.user-btn{padding:12px 16px;border:2px solid #e0e0e0;border-radius:9px;cursor:pointer;font-size:14px;font-weight:500;background:white;text-align:left;display:flex;align-items:center;gap:10px;transition:all .15s}
+.user-btn:hover{border-color:#185FA5;background:#f0f7ff}
+.role-badge{font-size:11px;padding:2px 7px;border-radius:99px;margin-left:auto}
+.role-badge.gest{background:#e3f2fd;color:#1565C0}
+.role-badge.op{background:#e8f5e9;color:#2e7d32}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+.header{background:#1A3A5C;color:white;padding:10px 16px;border-radius:10px;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.header-logo{font-size:15px;font-weight:700;flex:1}
+.header-sub{font-size:11px;opacity:.7;margin-top:2px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#4CAF50;display:inline-block;margin-right:4px}
+.sync-dot.syncing{background:#FFC107;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.user-chip{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.12);border-radius:99px;padding:5px 10px 5px 6px;cursor:pointer;border:1.5px solid rgba(255,255,255,.2);transition:background .15s}
+.user-chip:hover{background:rgba(255,255,255,.2)}
+.uavatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+
+/* ── Module selector ───────────────────────────────────────────────────── */
+.module-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.module-btn{padding:11px 14px;border:2px solid transparent;border-radius:9px;cursor:pointer;font-size:14px;font-weight:600;text-align:center;background:white;color:#666;transition:all .15s}
+.module-btn.active{color:white;border-color:transparent}
+.module-btn:not(.active):hover{background:#f5f5f5;border-color:#ddd}
+@media(max-width:760px){.module-tabs{grid-template-columns:1fr}}
+
+/* ── Gestiune tabs ─────────────────────────────────────────────────────── */
+.gest-tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.gest-btn{padding:9px 14px;border:2px solid transparent;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;background:white;color:#666;transition:all .15s;flex:1;min-width:140px;text-align:center}
+.gest-btn:not([class*=gactive]):hover{background:#f5f5f5;border-color:#ddd}
+
+/* ── Sub tabs ──────────────────────────────────────────────────────────── */
+.sub-tabs{display:flex;border-bottom:2px solid #e0e0e0;margin-bottom:14px;gap:2px;overflow-x:auto}
+.sub-btn{padding:9px 14px;border:none;background:transparent;cursor:pointer;font-size:13px;color:#888;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:500;white-space:nowrap;transition:color .15s}
+.sub-btn.active{color:#1A3A5C;border-bottom-color:#1A3A5C}
+.sub-btn.locked{opacity:.4;cursor:not-allowed}
+
+/* ── Cards & forms ─────────────────────────────────────────────────────── */
+.card{background:white;border-radius:10px;padding:16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.form-card{background:white;border-radius:10px;padding:18px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.form-grid{display:grid;gap:10px;margin-bottom:10px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+.g4{grid-template-columns:1fr 1fr 1fr 1fr}
+.g13{grid-template-columns:2fr 1fr}
+.g21{grid-template-columns:1fr 1fr 90px}
+@media(max-width:640px){.g2,.g3,.g4,.g13,.g21{grid-template-columns:1fr}}
+.field label{font-size:11px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;padding:9px 11px;border:1.5px solid #ddd;border-radius:7px;font-size:13px;color:#1a1a2e;transition:border-color .2s;font-family:inherit}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:#185FA5}
+.field textarea{min-height:60px;resize:vertical}
+.field .hint{font-size:11px;color:#888;margin-top:4px}
+.field .hint.ok{color:#2e7d32}.field .hint.warn{color:#e65100}.field .hint.err{color:#c62828}
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 15px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;border:1.5px solid #ddd;background:white;color:#333;transition:all .15s}
+.btn:hover{background:#f5f5f5}
+.btn.primary{color:white;border:none}
+.btn.danger{color:#f44336;border-color:#f44336}
+.btn.danger:hover{background:#fff5f5}
+.btn.sm{padding:5px 10px;font-size:12px}
+
+/* ── Badges ────────────────────────────────────────────────────────────── */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.badge.ok{background:#e8f5e9;color:#2e7d32}
+.badge.scazut{background:#fff3e0;color:#e65100}
+.badge.critic{background:#ffebee;color:#c62828}
+.badge.cat{background:#f0f0f0;color:#555}
+.badge.gest{background:#e3f2fd;color:#1565C0}
+.badge.op{background:#e8f5e9;color:#2e7d32}
+.badge.in{background:#e8f5e9;color:#2e7d32}
+.badge.out{background:#ffebee;color:#c62828}
+.badge.imb{background:#e3f2fd;color:#1565C0}
+
+.sec-pill{display:inline-flex;font-size:12px;font-weight:600;color:white;padding:4px 12px;border-radius:99px;margin-bottom:8px;margin-top:6px}
+.stoc-row{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#555;margin:4px 0}
+.stoc-val{font-weight:600;color:#1a1a2e}
+.mat-card{background:white;border-radius:10px;padding:13px 15px;margin-bottom:7px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:4px solid #ddd}
+.mat-card.ok{border-left-color:#4CAF50}
+.mat-card.scazut{border-left-color:#FF9800}
+.mat-card.critic{border-left-color:#f44336}
+.meta-row{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#777;margin-top:4px}
+
+/* ── Event log rows ────────────────────────────────────────────────────── */
+.ev-row{display:flex;align-items:center;gap:9px;padding:8px 12px;border-radius:8px;margin-bottom:4px;font-size:13px}
+.ev-row.prod{background:#e8f5e9}
+.ev-row.imb{background:#e3f2fd}
+.ev-row.van{background:#fff8e1}
+
+/* ── Stats ─────────────────────────────────────────────────────────────── */
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:13px}
+.stat{background:white;border-radius:8px;padding:13px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.stat-val{font-size:26px;font-weight:700}
+.stat-lbl{font-size:11px;color:#888;margin-top:2px;text-transform:uppercase;letter-spacing:.03em}
+
+/* ── Productie Butoaie cards ───────────────────────────────────────────── */
+.butoi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:640px){.butoi-grid{grid-template-columns:1fr 1fr}}
+.butoi-card{background:white;border-radius:10px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.08);border-top:4px solid #1A3A5C}
+.butoi-card.low{border-top-color:#f44336}
+.butoi-card .bc-name{font-size:13px;font-weight:700;margin-bottom:10px;color:#1a1a2e}
+.bc-row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5}
+.bc-row:last-child{border:none}
+.bc-row .lbl{color:#888}
+.bc-row .val{font-weight:600;color:#1a1a2e}
+.bc-row .val.ok{color:#2e7d32}
+.bc-row .val.warn{color:#e65100}
+.bc-row .val.bad{color:#c62828}
+
+/* ── User row ──────────────────────────────────────────────────────────── */
+.user-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:white;border-radius:8px;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+
+/* ── Misc ──────────────────────────────────────────────────────────────── */
+.empty{text-align:center;padding:32px 20px;color:#aaa}
+.empty .ico{font-size:32px;margin-bottom:10px}
+.divider{height:1px;background:#f0f0f0;margin:14px 0}
+.flex-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.section-title{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;transition:opacity .3s;pointer-events:none;z-index:200;white-space:nowrap}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div class="toast" id="toast"></div>
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────
+const DEFAULT_GESTIUNI = [
+  {id:"pafs",label:"PAFS — Fibra de Sticla",color:"#185FA5",bg:"#E6F1FB"},
+  {id:"ppc", label:"PP-C — Polipropilena",  color:"#3B6D11",bg:"#EAF3DE"}
+];
+const UM_OPTS = ["kg","m²","bucata","L","pcs","box","set","t","ml","m","rola","unitate"];
+const PLATA_OPTS = ["La termen","In avans","La livrare","Partial avans"];
+const AVATAR_COLORS = ["#185FA5","#3B6D11","#7B1FA2","#C62828","#E65100","#00695C","#1565C0","#4527A0"];
+const GEST_COLORS   = ["#185FA5","#3B6D11","#7B1FA2","#C62828","#E65100","#00695C","#1565C0","#4527A0"];
+const EMPTY_MAT  = {id:null,denumire:"",categorie:"",um:"kg",sectie:"",stoc:0,stocMin:0,producator:"",furnizor:"",timpLivrare:"",cantMin:"",tipPlata:"La termen",note:""};
+const EMPTY_USER = {id:null,name:"",role:"operator",active:true};
+const EMPTY_GEST = {id:null,label:"",color:"#185FA5",bg:"#E6F1FB"};
+const EMPTY_PROD_TIP = {id:null,label:"",stocInitialButoaie:0,stocInitialCapac:0,stocInitialPicior:0};
+
+// ── State ──────────────────────────────────────────────────────────────────
+let DB = {users:[],gestiuni:[...DEFAULT_GESTIUNI],mats:{},movs:{},productie:{tipuri:[],events:[]},foserez:null};
+let S = {
+  loaded:false, syncing:false, lastSync:null,
+  showLogin:true, activeUserId:parseInt(localStorage.getItem("fbr_uid")||"0")||null,
+  module:"gestiuni",  // "gestiuni" | "productie" | "foserez"
+  gest:"pafs", tab:"materiale",
+  showMatForm:false, editMatId:null, matForm:{...EMPTY_MAT},
+  movForm:{matId:"",type:"IN",qty:"",ref:"",by:""},
+  reportDate:new Date().toISOString().slice(0,10),
+  delConfirm:null,
+  showUserForm:false, editUserId:null, userForm:{...EMPTY_USER},
+  delUserConfirm:null,
+  showGestForm:false, gestForm:{...EMPTY_GEST},
+  // Productie state
+  prodTab:"dashboard", // dashboard | productie | imbinare | vanzare | raport
+  prodEvForm:{type:"productie",tipId:"",capac:"",picior:"",cantitate:"",client:"",note:"",date:new Date().toISOString().slice(0,10)},
+  prodBatch:[],                        // randuri adaugate in lot
+  prodBatchRow:{tipId:"",capac:"",picior:"",cantitate:""},  // randul curent de introdus
+  prodBatchDate:new Date().toISOString().slice(0,10),
+  prodBatchBy:"",
+  prodReportDate:new Date().toISOString().slice(0,10),
+  showProdTipForm:false, editProdTipId:null, prodTipForm:{...EMPTY_PROD_TIP},
+  frTab:"dashboard",
+  frCompForm:{id:"",label:"",category:"Componente",um:"buc",initial:0,sectie:"Componente",resin:""},
+  frProdForm:{id:"",label:"",gama:"BIOFIBROMAR",volum:"",initial:0,standardManhole:"gura_dn520",recipeText:""},
+  frEventForm:{targetId:"",qty:"",date:new Date().toISOString().slice(0,10),by:"",client:"",manholeId:"gura_dn520",note:""},
+  showFrCompForm:false, editFrCompId:null, showFrProdForm:false, editFrProdId:null
+};
+
+// ── API ────────────────────────────────────────────────────────────────────
+async function loadDB(){
+  try{const r=await fetch('/api/data');DB=await r.json();normalizeDB();S.lastSync=new Date();}
+  catch(e){showToast("Eroare conexiune server!");}
+}
+async function saveDB(){
+  S.syncing=true;render();
+  try{await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(DB)});S.lastSync=new Date();}
+  catch(e){showToast("Eroare salvare!");}
+  S.syncing=false;render();
+}
+setInterval(async()=>{if(!S.showMatForm&&!S.showUserForm&&!S.showGestForm&&!S.showProdTipForm&&!S.showFrCompForm&&!S.showFrProdForm){await loadDB();render();}},20000);
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const fmt=n=>(Math.round((n||0)*100)/100).toLocaleString('ro-RO',{minimumFractionDigits:0,maximumFractionDigits:2});
+function initials(n){return n.split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?';}
+function avatarColor(n){let h=0;for(let c of n)h=(h*31+c.charCodeAt(0))%AVATAR_COLORS.length;return AVATAR_COLORS[h];}
+function getStatus(m){
+  if(!m.stoc||m.stoc<=0)return{label:"Lipsa stoc",cls:"critic"};
+  if(m.stocMin&&m.stoc<m.stocMin)return{label:"Critic",cls:"critic"};
+  if(m.stocMin&&m.stoc<m.stocMin*1.2)return{label:"Scazut",cls:"scazut"};
+  return{label:"OK",cls:"ok"};
+}
+function getActiveUser(){return DB.users.find(u=>u.id===S.activeUserId)||null;}
+function isGestionar(){const u=getActiveUser();return u&&u.role==="gestionar";}
+function timeAgo(d){if(!d)return"";const s=Math.floor((new Date()-d)/1000);if(s<60)return"acum";if(s<3600)return`acum ${Math.floor(s/60)} min`;return d.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'});}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400);}
+function defaultFoseRez(){
+  const components=[
+    ["cil_d12_ind","Cilindru D1.2m rasina industriala","Cilindri","Hala Cilindru","industrial"],["cil_d16_ind","Cilindru D1.6m rasina industriala","Cilindri","Hala Cilindru","industrial"],["cil_d20_ind","Cilindru D2.0m rasina industriala","Cilindri","Hala Cilindru","industrial"],["cil_d24_ind","Cilindru D2.4m rasina industriala","Cilindri","Hala Cilindru","industrial"],["cil_d30_ind","Cilindru D3.0m rasina industriala","Cilindri","Hala Cilindru","industrial"],
+    ["cil_d12_food","Cilindru D1.2m rasina alimentara","Cilindri alimentari","Hala Cilindru","alimentara"],["cil_d16_food","Cilindru D1.6m rasina alimentara","Cilindri alimentari","Hala Cilindru","alimentara"],["cil_d20_food","Cilindru D2.0m rasina alimentara","Cilindri alimentari","Hala Cilindru","alimentara"],["cil_d24_food","Cilindru D2.4m rasina alimentara","Cilindri alimentari","Hala Cilindru","alimentara"],["cil_d30_food","Cilindru D3.0m rasina alimentara","Cilindri alimentari","Hala Cilindru","alimentara"],
+    ["capac_d12_intrare","Capac intrare D1.2m","Capace cilindru","Componente",""],["capac_d12_iesire","Capac iesire D1.2m","Capace cilindru","Componente",""],["capac_d16_univ","Capac cilindru Universal D1.6m","Capace cilindru","Componente",""],["capac_d20_univ","Capac cilindru Universal D2.0m","Capace cilindru","Componente",""],["capac_d24_univ","Capac cilindru Universal D2.4m","Capace cilindru","Componente",""],["capac_d30_univ","Capac cilindru Universal D3.0m","Capace cilindru","Componente",""],
+    ["capac_food_d12","Capac alimentar D1.2m","Capace alimentare","Componente","alimentara"],["capac_food_d16","Capac alimentar D1.6m","Capace alimentare","Componente","alimentara"],["capac_food_d20","Capac alimentar D2.0m","Capace alimentare","Componente","alimentara"],["capac_food_d24","Capac alimentar D2.4m","Capace alimentare","Componente","alimentara"],["capac_food_d30","Capac alimentar D3.0m","Capace alimentare","Componente","alimentara"],
+    ["gura_dn520","Gura de vizitare DN520mm","Guri vizitare","Componente",""],["gura_dn800","Gura de vizitare DN800mm","Guri vizitare","Componente",""],["gura_dn1000","Gura de vizitare DN1000mm","Guri vizitare","Componente",""],
+    ["capac_gura_dn520","Capac gura de vizitare DN520mm","Capace guri vizitare","Componente",""],["capac_gura_dn800","Capac gura de vizitare DN800mm","Capace guri vizitare","Componente",""],["capac_gura_dn1000","Capac gura de vizitare DN1000mm","Capace guri vizitare","Componente",""],
+    ["camera_rot_d12","Camera rotunda fosa D1.2m","Camere interioare","Componente",""],["camera_pat_d12","Camera patrata fosa D1.2m","Camere interioare","Componente",""],["camera_rot_d16","Camera Rotunda fosa D1.6m","Camere interioare","Componente",""],["camera_pat_d16","Camera Patrata fosa D1.6m","Camere interioare","Componente",""],["camera_rot_d20","Camera Rotunda fosa D2.0m","Camere interioare","Componente",""]
+  ].map(([id,label,category,sectie,resin])=>({id,label,category,um:"buc",initial:0,sectie,resin}));
+  components.find(c=>c.id==="capac_gura_dn520").coverFor="gura_dn520";components.find(c=>c.id==="capac_gura_dn800").coverFor="gura_dn800";components.find(c=>c.id==="capac_gura_dn1000").coverFor="gura_dn1000";
+  const man=[["gura_dn520",1],["capac_gura_dn520",1]];
+  const cap=(d,food=false)=>food?[["capac_food_"+d,2]]:(d==="d12"?[["capac_d12_intrare",1],["capac_d12_iesire",1]]:[["capac_"+d+"_univ",2]]);
+  const prod=(id,label,gama,volum,recipe,initial=0)=>({id,label,gama,volum,initial,standardManhole:"gura_dn520",recipe:[...recipe,...man].map(([componentId,qty])=>({componentId,qty}))});
+  const products=[
+    prod("bio_2000","BIOFIBROMAR 2000","BIOFIBROMAR","2000L",[["cil_d12_ind",1],["camera_rot_d12",1],["camera_pat_d12",1],...cap("d12")]),
+    prod("bio_3000","BIOFIBROMAR 3000","BIOFIBROMAR","3000L",[["cil_d12_ind",1],["camera_rot_d12",1],["camera_pat_d12",1.5],...cap("d12")]),
+    prod("bio_4000","BIOFIBROMAR 4000","BIOFIBROMAR","4000L",[["cil_d12_ind",1],["camera_rot_d12",1],["camera_pat_d12",2],...cap("d12")]),
+    prod("bio_5000","BIOFIBROMAR 5000","BIOFIBROMAR","5000L",[["cil_d16_ind",1],["camera_rot_d16",1],["camera_pat_d16",1],...cap("d16")]),
+    prod("bio_6000","BIOFIBROMAR 6000","BIOFIBROMAR","6000L",[["cil_d16_ind",1],["camera_rot_d16",1],["camera_pat_d16",1],...cap("d16")]),
+    prod("bio_10000","BIOFIBROMAR 10000","BIOFIBROMAR","10000L",[["cil_d20_ind",1],["camera_rot_d20",2],...cap("d20")]),
+    prod("bio_12000","BIOFIBROMAR 12000","BIOFIBROMAR","12000L",[["cil_d20_ind",1],["camera_rot_d20",2],...cap("d20")]),
+    prod("bio_15000","BIOFIBROMAR 15000","BIOFIBROMAR","15000L",[["cil_d20_ind",1],["camera_rot_d20",2],...cap("d20")]),
+    prod("bio_20000","BIOFIBROMAR 20000","BIOFIBROMAR","20000L",[["cil_d20_ind",1],["camera_rot_d20",2],...cap("d20")]),
+    prod("bio_25000","BIOFIBROMAR 25000","BIOFIBROMAR","25000L",[["cil_d20_ind",1],["camera_rot_d20",2],...cap("d20")])
+  ];
+  [["2000","d12"],["3000","d12"],["4000","d12"],["5000","d16"],["6000","d16"],["10000","d20"],["12000","d20"],["15000","d20"],["20000","d20"],["25000","d20"]].forEach(([v,d])=>{
+    products.push(prod("eco_"+v,"ECOFIBROMAR "+v,"ECOFIBROMAR",v+"L",[["cil_"+d+"_ind",1],...cap(d)]));
+    products.push(prod("rez_"+v,"Rezervor apa potabila "+v+"L","REZERVOR ALIMENTAR",v+"L",[["cil_"+d+"_food",1],...cap(d,true)]));
+  });
+  return{components,products,events:[]};
+}
+
+function normalizeDB(){
+  if(!Array.isArray(DB.users))DB.users=[];
+  if(!Array.isArray(DB.gestiuni)||DB.gestiuni.length===0)DB.gestiuni=[...DEFAULT_GESTIUNI];
+  if(!DB.mats||typeof DB.mats!=='object')DB.mats={};
+  if(!DB.movs||typeof DB.movs!=='object')DB.movs={};
+  DB.gestiuni=DB.gestiuni.map((g,i)=>({
+    id:g.id||makeGestId(g.label||("gestiune"+(i+1))),
+    label:g.label||("Gestiune"+(i+1)),
+    color:g.color||GEST_COLORS[i%GEST_COLORS.length],
+    bg:g.bg||"#F3F6FA"
+  }));
+  DB.gestiuni.forEach(g=>{if(!Array.isArray(DB.mats[g.id]))DB.mats[g.id]=[];if(!Array.isArray(DB.movs[g.id]))DB.movs[g.id]=[];});
+  if(!DB.gestiuni.find(g=>g.id===S.gest))S.gest=DB.gestiuni[0]?.id||"pafs";
+  if(!DB.productie)DB.productie={tipuri:[],events:[]};
+  if(!Array.isArray(DB.productie.tipuri))DB.productie.tipuri=[];
+  if(!Array.isArray(DB.productie.events))DB.productie.events=[];
+  if(!DB.foserez)DB.foserez=defaultFoseRez();
+  const frDef=defaultFoseRez();
+  if(!Array.isArray(DB.foserez.components)||DB.foserez.components.length===0)DB.foserez.components=frDef.components;
+  if(!Array.isArray(DB.foserez.products)||DB.foserez.products.length===0)DB.foserez.products=frDef.products;
+  if(!Array.isArray(DB.foserez.events))DB.foserez.events=[];
+  const compIds=new Set(DB.foserez.components.map(c=>c.id));
+  frDef.components.forEach(c=>{if(!compIds.has(c.id))DB.foserez.components.push(c);});
+  DB.foserez.products=DB.foserez.products.map(p=>({...p,recipe:Array.isArray(p.recipe)?p.recipe:[],standardManhole:p.standardManhole||"gura_dn520"}));
+}
+function getGestiuni(){return Array.isArray(DB.gestiuni)&&DB.gestiuni.length?DB.gestiuni:DEFAULT_GESTIUNI;}
+function makeGestId(label){
+  const base=String(label||"gestiune").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,28)||"gestiune";
+  let id=base,n=2;const used=new Set(getGestiuni().map(g=>g.id));
+  while(used.has(id)){id=base+"-"+n;n++;}
+  return id;
+}
+function nextGestColor(){return GEST_COLORS[getGestiuni().length%GEST_COLORS.length];}
+
+// ── Productie helpers ──────────────────────────────────────────────────────
+function calcStocProd(tipId){
+  const tip=DB.productie.tipuri.find(t=>t.id===tipId);
+  if(!tip)return{capac:0,picior:0,butoaie:0};
+  const events=DB.productie.events.filter(e=>e.tipId===tipId);
+  let capac=tip.stocInitialCapac, picior=tip.stocInitialPicior, butoaie=tip.stocInitialButoaie;
+  events.forEach(e=>{
+    if(e.type==="productie"){capac+=(+e.capac||0);picior+=(+e.picior||0);}
+    else if(e.type==="imbinare"){capac-=(+e.cantitate||0);picior-=(+e.cantitate||0);butoaie+=(+e.cantitate||0);}
+    else if(e.type==="vanzare"){butoaie-=(+e.cantitate||0);}
+  });
+  return{capac:Math.max(0,capac),picior:Math.max(0,picior),butoaie:Math.max(0,butoaie)};
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+function render(){
+  if(!S.loaded)return;
+  const activeUser=getActiveUser();
+  const isGest=isGestionar();
+  const g=S.gest;
+  const gi=getGestiuni().find(x=>x.id===g)||getGestiuni()[0]||DEFAULT_GESTIUNI[0];
+  const mats=DB.mats[g]||[];
+  const movs=DB.movs[g]||[];
+  const critCount=mats.filter(m=>getStatus(m).cls==="critic").length;
+  const lowCount=mats.filter(m=>getStatus(m).cls==="scazut").length;
+  const dayMovs=movs.filter(m=>m.date===S.reportDate);
+
+  let html="";
+
+  // ── Login overlay ─────────────────────────────────────────────────
+  if(S.showLogin||!activeUser){
+    html+=`<div class="overlay"><div class="login-box">
+      <div style="font-size:36px;margin-bottom:8px">🏭</div>
+      <h2>FIBROMAR</h2>
+      <p>Selectati utilizatorul pentru a continua</p>
+      <div class="user-list">
+        ${DB.users.filter(u=>u.active).map(u=>`
+          <button class="user-btn" onclick="selectUser(${u.id})">
+            <div class="uavatar" style="width:36px;height:36px;background:${avatarColor(u.name)};color:white">${initials(u.name)}</div>
+            <span>${esc(u.name)}</span>
+            <span class="role-badge ${u.role==='gestionar'?'gest':'op'}">${u.role==='gestionar'?'Gestionar':'Operator'}</span>
+          </button>`).join("")}
+      </div>
+      <div style="font-size:12px;color:#bbb">Utilizatorii se gestioneaza din Setari (gestionar)</div>
+    </div></div>`;
+  }
+
+  // ── Header ────────────────────────────────────────────────────────
+  html+=`<div class="header">
+    <div style="flex:1">
+      <div class="header-logo">🏭 FIBROMAR — Sistem de Productie</div>
+      <div class="header-sub">
+        <span class="sync-dot${S.syncing?' syncing':''}"></span>
+        ${S.syncing?"Se salveaza...":(S.lastSync?"Sync "+timeAgo(S.lastSync):"Se incarca...")}
+        ${S.module==="gestiuni"?` &nbsp;·&nbsp; ${mats.length} materiale${critCount?` · ${critCount} critic`:""}`:S.module==="productie"?` &nbsp;·&nbsp; Productie Butoaie`:` &nbsp;·&nbsp; Productie Fose si Rezervoare`}
+      </div>
+    </div>
+    ${activeUser?`<div class="user-chip" onclick="switchUser()">
+      <div class="uavatar" style="background:${avatarColor(activeUser.name)};color:white">${initials(activeUser.name)}</div>
+      <div><div style="font-size:12px;font-weight:500">${esc(activeUser.name)}</div>
+      <div style="font-size:10px;opacity:.75">${activeUser.role==='gestionar'?'Gestionar':'Operator'} ▾</div></div>
+    </div>`:""}
+  </div>`;
+
+  // ── Module selector ───────────────────────────────────────────────
+  html+=`<div class="module-tabs">
+    <button class="module-btn${S.module==='gestiuni'?' active':''}" style="${S.module==='gestiuni'?'background:#1A3A5C;':''}" onclick="setModule('gestiuni')">📦 Gestiune Materie Prima</button>
+    <button class="module-btn${S.module==='productie'?' active':''}" style="${S.module==='productie'?'background:#7B3F00;':''}" onclick="setModule('productie')">🪣 Productie Butoaie</button>
+    <button class="module-btn${S.module==='foserez'?' active':''}" style="${S.module==='foserez'?'background:#00695C;':''}" onclick="setModule('foserez')">🧪 Fose si Rezervoare Fibra</button>
+  </div>`;
+
+  // ════════════════════════════════════════════════════════════════════
+  if(S.module==="gestiuni"){
+    html+=renderGestiuni(g,gi,mats,movs,critCount,lowCount,dayMovs,isGest,activeUser);
+  } else if(S.module==="productie"){
+    html+=renderProductie(isGest,activeUser);
+  } else {
+    html+=renderFoseRez(isGest,activeUser);
+  }
+
+  document.getElementById('root').innerHTML=html;
+  const mByEl=document.getElementById('m-by');
+  if(mByEl&&!S.movForm.by&&activeUser)mByEl.value=activeUser.name;
+  const pfByEl=document.getElementById('pf-by');
+  if(pfByEl&&activeUser&&!pfByEl.value)pfByEl.value=activeUser.name;
+  attachProdEvents();
+}
+
+// ── GESTIUNI MODULE ────────────────────────────────────────────────────────
+function renderGestiuni(g,gi,mats,movs,critCount,lowCount,dayMovs,isGest,activeUser){
+  let html="";
+  // Gestiune tabs
+  html+=`<div class="gest-tabs">
+    ${getGestiuni().map(gx=>`<button class="gest-btn" style="${S.gest===gx.id?'background:'+gx.color+';color:white;border-color:'+gx.color:'border-color:#ddd'}" onclick="switchGest('${gx.id}')">${gx.label}</button>`).join("")}
+  </div>`;
+  // Sub tabs
+  const tabs=[["materiale","📦 Materiale"],["miscari","↕ Miscari"],["raport","📋 Raport"],["setari","⚙ Setari"]];
+  html+=`<div class="sub-tabs">
+    ${tabs.map(([id,lbl])=>{const locked=id==="setari"&&!isGest;
+      return `<button class="sub-btn${S.tab===id?' active':''}${locked?' locked':''}" onclick="${locked?'showToast(\'Doar gestionarii pot accesa Setarile!\')':("switchTab('"+id+"')")}">${lbl}${locked?' 🔒':''}</button>`;}).join("")}
+  </div>`;
+
+  if(S.tab==="materiale"){
+    html+=`<div class="stats-grid">
+      <div class="stat"><div class="stat-val" style="color:${gi.color}">${mats.length}</div><div class="stat-lbl">Materiale</div></div>
+      <div class="stat"><div class="stat-val" style="color:#f44336">${critCount}</div><div class="stat-lbl">Critic</div></div>
+      <div class="stat"><div class="stat-val" style="color:#FF9800">${lowCount}</div><div class="stat-lbl">Scazut</div></div>
+    </div>`;
+    if(isGest){
+      if(S.showMatForm){
+        const f=S.matForm;
+        html+=`<div class="form-card" style="border:2px solid ${gi.color}">
+          <div class="section-title" style="color:${gi.color}">${S.editMatId?"✏️ Editeaza":"➕ Adauga material"}</div>
+          <div class="form-grid g21">
+            <div class="field" style="grid-column:1/3"><label>Denumire *</label><input id="f-den" value="${esc(f.denumire)}" placeholder="ex: Corecombomat 300"></div>
+            <div class="field"><label>UM *</label><select id="f-um">${UM_OPTS.map(u=>`<option${f.um===u?" selected":""}>${u}</option>`).join("")}</select></div>
+          </div>
+          <div class="form-grid g3">
+            <div class="field"><label>Categorie</label><input id="f-cat" value="${esc(f.categorie)}"></div>
+            <div class="field"><label>Sectie / Hala</label><input id="f-sec" value="${esc(f.sectie)}" placeholder="ex: Hala 1 - RTM Light"></div>
+            <div class="field"><label>Tip plata</label><select id="f-plata">${PLATA_OPTS.map(p=>`<option${f.tipPlata===p?" selected":""}>${p}</option>`).join("")}</select></div>
+          </div>
+          <div class="form-grid g2">
+            <div class="field"><label>Producator</label><input id="f-prod" value="${esc(f.producator)}"></div>
+            <div class="field"><label>Furnizor *</label><input id="f-furn" value="${esc(f.furnizor)}"></div>
+          </div>
+          <div class="form-grid g3">
+            <div class="field"><label>Timp livrare (zile)</label><input id="f-livrare" type="number" value="${esc(f.timpLivrare)}"></div>
+            <div class="field"><label>Cant. min. comanda</label><input id="f-cantmin" type="number" value="${esc(f.cantMin)}"></div>
+            <div class="field"><label>Stoc minim recomanda</label><input id="f-stocmin" type="number" step="0.01" value="${f.stocMin||0}"></div>
+          </div>
+          <div class="form-grid g2" style="margin-bottom:10px">
+            <div class="field"><label>Stoc initial</label><input id="f-stoc" type="number" step="0.01" value="${f.stoc||0}"></div>
+            <div class="field"><label>Note</label><input id="f-note" value="${esc(f.note)}"></div>
+          </div>
+          <div class="flex-row">
+            <button class="btn primary" style="background:${gi.color}" onclick="saveMat()">${S.editMatId?"💾 Salveaza":"✅ Adauga"}</button>
+            <button class="btn" onclick="cancelMatForm()">Anuleaza</button>
+          </div>
+        </div>`;
+      } else {
+        html+=`<div style="display:flex;justify-content:flex-end;margin-bottom:11px">
+          <button class="btn primary" style="background:${gi.color}" onclick="newMat()">➕ Adauga material</button>
+        </div>`;
+      }
+    }
+    if(mats.length===0){
+      html+=`<div class="empty"><div class="ico">📦</div><p>Nu exista materiale.${isGest?" Apasati «Adauga material».":""}</p></div>`;
+    } else {
+      const sectii=[...new Set(mats.map(m=>m.sectie||"Fara sectie"))];
+      sectii.forEach(sec=>{
+        html+=`<div class="sec-pill" style="background:${gi.color}">📍 ${esc(sec)}</div>`;
+        mats.filter(m=>(m.sectie||"Fara sectie")===sec).forEach(m=>{
+          const st=getStatus(m);const isDelConf=S.delConfirm===m.id;
+          html+=`<div class="mat-card ${st.cls}">
+            <div style="display:flex;align-items:flex-start;gap:8px">
+              <div style="flex:1;min-width:0">
+                <div class="flex-row" style="margin-bottom:4px">
+                  <span style="font-size:14px;font-weight:600">${esc(m.denumire)}</span>
+                  ${m.categorie?`<span class="badge cat">${esc(m.categorie)}</span>`:""}
+                  <span class="badge ${st.cls}" style="margin-left:auto">${st.label}</span>
+                </div>
+                <div class="stoc-row">
+                  <span>Stoc: <span class="stoc-val">${fmt(m.stoc)} ${esc(m.um)}</span></span>
+                  ${m.stocMin?`<span>Minim: <span class="stoc-val">${fmt(m.stocMin)} ${esc(m.um)}</span></span>`:""}
+                  ${m.cantMin?`<span>Cmd.min: <span class="stoc-val">${fmt(m.cantMin)} ${esc(m.um)}</span></span>`:""}
+                </div>
+                <div class="meta-row">
+                  ${m.furnizor?`<span>🏪 ${esc(m.furnizor)}</span>`:""}
+                  ${m.producator?`<span>🏭 ${esc(m.producator)}</span>`:""}
+                  ${m.timpLivrare?`<span>⏱ ${esc(m.timpLivrare)} zile</span>`:""}
+                  ${m.tipPlata?`<span>💳 ${esc(m.tipPlata)}</span>`:""}
+                </div>
+                ${m.note?`<div style="font-size:11px;color:#999;margin-top:4px;font-style:italic">📝 ${esc(m.note)}</div>`:""}
+              </div>
+              ${isGest?`<div class="flex-row" style="flex-shrink:0;margin-left:8px">
+                ${isDelConf?`<button class="btn sm danger" onclick="delMatOk(${m.id})">Sterge</button><button class="btn sm" onclick="delCancel()">Nu</button>`
+                :`<button class="btn sm" onclick="editMat(${m.id})">✏️</button><button class="btn sm danger" onclick="delAsk(${m.id})">🗑</button>`}
+              </div>`:""}
+            </div>
+          </div>`;
+        });
+      });
+    }
+  }
+
+  if(S.tab==="miscari"){
+    const mf=S.movForm;const btnColor=mf.type==="IN"?"#3B6D11":"#A32D2D";
+    html+=`<div class="card">
+      <div class="section-title">Inregistreaza miscare stoc</div>
+      <div class="form-grid g13">
+        <div class="field"><label>Material</label>
+          <select id="m-mat" onchange="mfSet('matId',this.value)">
+            <option value="">— Selectati —</option>
+            ${mats.map(m=>`<option value="${m.id}"${mf.matId==m.id?" selected":""}>${esc(m.denumire)} (${m.um}) — stoc: ${fmt(m.stoc)}</option>`).join("")}
+          </select></div>
+        <div class="field"><label>Tip</label>
+          <select id="m-type" onchange="mfSet('type',this.value)">
+            <option value="IN"${mf.type==="IN"?" selected":""}>IN — Receptie</option>
+            <option value="OUT"${mf.type==="OUT"?" selected":""}>OUT — Consum</option>
+          </select></div>
+      </div>
+      <div class="form-grid g3">
+        <div class="field"><label>Cantitate</label><input id="m-qty" type="number" min="0.01" step="0.01" value="${esc(mf.qty)}" placeholder="0" oninput="mfSet('qty',this.value)"></div>
+        <div class="field"><label>Referinta</label><input id="m-ref" value="${esc(mf.ref)}" oninput="mfSet('ref',this.value)"></div>
+        <div class="field"><label>Operator</label><input id="m-by" value="${esc(mf.by)}" oninput="mfSet('by',this.value)"></div>
+      </div>
+      <button class="btn primary" style="background:${btnColor}" onclick="logMov()">${mf.type==="IN"?"✅ Confirma receptie":"📤 Confirma consum"}</button>
+    </div>`;
+    if(movs.length===0){html+=`<div class="empty"><div class="ico">↕️</div><p>Nu exista miscari.</p></div>`;}
+    else{
+      html+=`<div style="font-size:12px;color:#aaa;margin-bottom:8px;text-align:right">Ultimele 30 · total: ${movs.length}</div>`;
+      [...movs].reverse().slice(0,30).forEach(mv=>{
+        html+=`<div class="ev-row ${mv.type==="IN"?"prod":"van"}">
+          <span class="badge ${mv.type==="IN"?"in":"out"}">${mv.type}</span>
+          <span style="flex:1;font-weight:500">${esc(mv.matName)}</span>
+          <span style="font-weight:600;color:${mv.type==="IN"?"#2e7d32":"#c62828"}">${mv.type==="IN"?"+":"-"}${fmt(mv.qty)} ${esc(mv.um)}</span>
+          <span style="font-size:11px;color:#888">${mv.date} ${mv.time||""}${mv.by?" · "+esc(mv.by):""}${mv.ref?" · "+esc(mv.ref):""}</span>
+        </div>`;
+      });
+    }
+  }
+
+  if(S.tab==="raport"){
+    const inM=dayMovs.filter(m=>m.type==="IN"),outM=dayMovs.filter(m=>m.type==="OUT");
+    html+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <span style="font-size:15px;font-weight:600">Raport zilnic</span>
+      <input type="date" value="${S.reportDate}" onchange="S.reportDate=this.value;render()"
+        style="padding:7px 10px;border:1.5px solid #ddd;border-radius:7px;font-size:13px;background:white">
+    </div>
+    <div class="stats-grid">
+      <div class="stat"><div class="stat-val" style="color:#2e7d32">${inM.length}</div><div class="stat-lbl">Receptii</div></div>
+      <div class="stat"><div class="stat-val" style="color:#c62828">${outM.length}</div><div class="stat-lbl">Consum</div></div>
+      <div class="stat"><div class="stat-val" style="color:#555">${dayMovs.length}</div><div class="stat-lbl">Total</div></div>
+    </div>`;
+    [["IN","✅ Receptii","#3B6D11",inM],["OUT","📤 Consum","#A32D2D",outM]].forEach(([type,title,color,items])=>{
+      html+=`<div style="padding:7px 13px;border-radius:8px;font-size:13px;font-weight:600;color:white;background:${color};margin-bottom:6px">${title} — ${items.length} inreg.</div>`;
+      if(items.length===0){html+=`<div style="background:white;border-radius:8px;padding:12px;font-size:13px;color:#aaa;text-align:center;margin-bottom:12px">Nu exista.</div>`;}
+      else{html+=`<div style="background:white;border-radius:8px;margin-bottom:13px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)">`;
+        items.forEach(mv=>{html+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 13px;border-bottom:1px solid #f0f0f0;font-size:13px">
+          <div><div style="font-weight:500">${esc(mv.matName)}</div><div style="font-size:11px;color:#888">${mv.time||""}${mv.by?" · "+esc(mv.by):""}${mv.ref?" · "+esc(mv.ref):""}</div></div>
+          <div style="font-weight:600;color:${type==="IN"?"#2e7d32":"#c62828"}">${type==="IN"?"+":"-"}${fmt(mv.qty)} ${esc(mv.um)}</div>
+        </div>`;});
+        html+=`</div>`;}
+    });
+  }
+
+  if(S.tab==="setari"&&isGest){
+    html+=`<div class="section-title">👤 Utilizatori</div>`;
+    if(S.showUserForm){
+      const uf=S.userForm;
+      html+=`<div class="form-card" style="border:2px solid #185FA5;margin-bottom:14px">
+        <div class="section-title" style="color:#185FA5">${S.editUserId?"✏️ Editeaza utilizator":"➕ Adauga utilizator"}</div>
+        <div class="form-grid g2">
+          <div class="field"><label>Nume complet *</label><input id="u-name" value="${esc(uf.name)}" placeholder="ex: Ion Popescu"></div>
+          <div class="field"><label>Rol</label>
+            <select id="u-role">
+              <option value="gestionar"${uf.role==="gestionar"?" selected":""}>Gestionar (acces complet)</option>
+              <option value="operator"${uf.role==="operator"?" selected":""}>Operator (doar miscari)</option>
+            </select></div>
+        </div>
+        <div class="flex-row"><button class="btn primary" style="background:#185FA5" onclick="saveUser()">${S.editUserId?"💾 Salveaza":"✅ Adauga"}</button><button class="btn" onclick="cancelUserForm()">Anuleaza</button></div>
+      </div>`;
+    } else {
+      html+=`<div style="display:flex;justify-content:flex-end;margin-bottom:11px"><button class="btn primary" style="background:#185FA5" onclick="newUser()">➕ Adauga utilizator</button></div>`;
+    }
+    DB.users.forEach(u=>{const isMe=u.id===S.activeUserId;
+      html+=`<div class="user-row">
+        <div class="uavatar" style="width:38px;height:38px;border-radius:50%;background:${avatarColor(u.name)};color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">${initials(u.name)}</div>
+        <div style="flex:1"><div style="font-size:14px;font-weight:600">${esc(u.name)}${isMe?' <span style="font-size:11px;color:#185FA5">(tu)</span>':""}</div>
+        <div style="font-size:12px;color:#888">${u.role==="gestionar"?"Gestionar":"Operator"}</div></div>
+        <span class="badge ${u.role==='gestionar'?'gest':'op'}">${u.role==='gestionar'?'Gestionar':'Operator'}</span>
+        ${S.delUserConfirm===u.id?`<button class="btn sm danger" onclick="delUserOk(${u.id})">Sterge</button><button class="btn sm" onclick="S.delUserConfirm=null;render()">Nu</button>`
+        :`<button class="btn sm" onclick="editUser(${u.id})">✏️</button>${!isMe?`<button class="btn sm danger" onclick="S.delUserConfirm=${u.id};render()">🗑</button>`:""}`}
+      </div>`;
+    });
+    html+=`<div class="divider"></div><div class="section-title">🗂 Gestiuni</div>`;
+    if(S.showGestForm){
+      const gf=S.gestForm;
+      html+=`<div class="form-card" style="border:2px solid ${gf.color};margin-bottom:14px">
+        <div class="section-title" style="color:${gf.color}">Adauga gestiune</div>
+        <div class="form-grid g2">
+          <div class="field"><label>Denumire *</label><input id="g-label" value="${esc(gf.label)}" placeholder="ex: Materii auxiliare"></div>
+          <div class="field"><label>Culoare</label><input id="g-color" type="color" value="${esc(gf.color)}" onchange="S.gestForm.color=this.value;render()"></div>
+        </div>
+        <div class="flex-row"><button class="btn primary" style="background:${gf.color}" onclick="saveGest()">Adauga</button><button class="btn" onclick="cancelGestForm()">Anuleaza</button></div>
+      </div>`;
+    } else {
+      html+=`<div style="display:flex;justify-content:flex-end;margin-bottom:11px"><button class="btn primary" style="background:#185FA5" onclick="newGest()">➕ Adauga gestiune</button></div>`;
+    }
+    getGestiuni().forEach(gx=>{
+      html+=`<div class="user-row">
+        <div style="width:38px;height:38px;border-radius:8px;background:${gx.color};flex-shrink:0"></div>
+        <div style="flex:1"><div style="font-size:14px;font-weight:600">${esc(gx.label)}</div>
+        <div style="font-size:12px;color:#888">${(DB.mats[gx.id]||[]).length} materiale · ${(DB.movs[gx.id]||[]).length} miscari</div></div>
+        <button class="btn sm" onclick="switchGest('${gx.id}');S.tab='materiale';render()">Deschide</button>
+      </div>`;
+    });
+  }
+  return html;
+}
+
+// ── PRODUCTIE BUTOAIE MODULE ───────────────────────────────────────────────
+function renderProductie(isGest,activeUser){
+  const tipuri=DB.productie.tipuri;
+  const events=DB.productie.events;
+  const tabs=[["dashboard","📊 Dashboard"],["productie","🔨 Productie Piese"],["imbinare","🔧 Asamblare"],["vanzare","🚚 Vanzari"],["raport","📋 Raport"]];
+  if(isGest)tabs.push(["tipuri_prod","⚙ Tipuri Butoi"]);
+
+  let html=`<div class="sub-tabs">
+    ${tabs.map(([id,lbl])=>`<button class="sub-btn${S.prodTab===id?' active':''}" onclick="S.prodTab='${id}';render()">${lbl}</button>`).join("")}
+  </div>`;
+
+  // ── Dashboard ──────────────────────────────────────────────────────
+  if(S.prodTab==="dashboard"){
+    const totButoaie=tipuri.reduce((s,t)=>s+calcStocProd(t.id).butoaie,0);
+    const totCapac=tipuri.reduce((s,t)=>s+calcStocProd(t.id).capac,0);
+    const todayEvents=events.filter(e=>e.date===new Date().toISOString().slice(0,10));
+    html+=`<div class="stats-grid">
+      <div class="stat"><div class="stat-val" style="color:#7B3F00">${totButoaie}</div><div class="stat-lbl">Butoaie in stoc</div></div>
+      <div class="stat"><div class="stat-val" style="color:#185FA5">${totCapac}</div><div class="stat-lbl">Piese (capace)</div></div>
+      <div class="stat"><div class="stat-val" style="color:#3B6D11">${todayEvents.filter(e=>e.type==="imbinare").reduce((s,e)=>s+(+e.cantitate||0),0)}</div><div class="stat-lbl">Asamblate azi</div></div>
+    </div>`;
+    html+=`<div class="butoi-grid">`;
+    tipuri.forEach(t=>{
+      const st=calcStocProd(t.id);
+      const low=st.butoaie<10||st.capac<5||st.picior<5;
+      html+=`<div class="butoi-card${low?' low':''}">
+        <div class="bc-name">🪣 ${esc(t.label)}</div>
+        <div class="bc-row"><span class="lbl">Butoaie finite</span><span class="val ${st.butoaie<5?'bad':st.butoaie<20?'warn':'ok'}">${st.butoaie}</span></div>
+        <div class="bc-row"><span class="lbl">Capace</span><span class="val ${st.capac<5?'bad':st.capac<10?'warn':'ok'}">${st.capac}</span></div>
+        <div class="bc-row"><span class="lbl">Picioare</span><span class="val ${st.picior<5?'bad':st.picior<10?'warn':'ok'}">${st.picior}</span></div>
+        <div class="bc-row" style="margin-top:6px;border-top:1px solid #f0f0f0;padding-top:6px">
+          <span class="lbl">Pot asambla</span>
+          <span class="val" style="color:#185FA5">${Math.min(st.capac,st.picior)} buc</span>
+        </div>
+      </div>`;
+    });
+    html+=`</div>`;
+    if(tipuri.length===0)html+=`<div class="empty"><div class="ico">🪣</div><p>Nu exista tipuri de butoi definite.<br><small>Adaugati din tab-ul ⚙ Tipuri Butoi.</small></p></div>`;
+  }
+
+  // ── Form producere/asamblare/vanzare (comun) ───────────────────────
+  function prodForm(type){
+    const pf=S.prodEvForm;
+    const tip=tipuri.find(t=>t.id===pf.tipId);
+    const st=tip?calcStocProd(pf.tipId):{capac:0,picior:0,butoaie:0};
+    const tipOpts=tipuri.map(t=>`<option value="${t.id}"${pf.tipId===t.id?" selected":""}>${esc(t.label)}</option>`).join("");
+    const colors={productie:"#3B6D11",imbinare:"#185FA5",vanzare:"#7B3F00"};
+    const titles={productie:"🔨 Inregistreaza productie piese",imbinare:"🔧 Asamblare butoaie (imbinare)",vanzare:"🚚 Inregistreaza vanzare"};
+
+    html+=`<div class="card" style="border:2px solid ${colors[type]}">
+      <div class="section-title" style="color:${colors[type]}">${titles[type]}</div>
+      <div class="form-grid g3">
+        <div class="field"><label>Tip butoi *</label>
+          <select id="pf-tip" onchange="pfSet('tipId',this.value)">${tipOpts.length?`<option value="">— Selectati —</option>${tipOpts}`:`<option value="">— Adaugati tipuri din ⚙ —</option>`}</select></div>
+        <div class="field"><label>Data</label>
+          <input id="pf-date" type="date" value="${pf.date}" onchange="pfSet('date',this.value)"></div>
+        <div class="field"><label>Operator</label>
+          <input id="pf-by" value="${esc(activeUser?activeUser.name:'')}" placeholder="Nama operatorului"></div>
+      </div>`;
+
+    if(type==="productie"){
+      html+=`<div class="form-grid g2">
+        <div class="field">
+          <label>Capace produse</label>
+          <input id="pf-capac" type="number" min="0" value="${pf.capac||""}" placeholder="0" oninput="pfSet('capac',this.value)">
+          ${tip?`<div class="hint">Stoc curent capace: <strong>${st.capac}</strong></div>`:""}
+        </div>
+        <div class="field">
+          <label>Picioare produse</label>
+          <input id="pf-picior" type="number" min="0" value="${pf.picior||""}" placeholder="0" oninput="pfSet('picior',this.value)">
+          ${tip?`<div class="hint">Stoc curent picioare: <strong>${st.picior}</strong></div>`:""}
+        </div>
+      </div>`;
+    }
+    if(type==="imbinare"){
+      const cantMax=Math.min(st.capac,st.picior);
+      const cantVal=parseInt(pf.cantitate)||0;
+      const hintCls=!tip?"":cantVal>cantMax?"err":cantVal>0?"ok":"";
+      html+=`<div class="form-grid">
+        <div class="field">
+          <label>Numar butoaie de asamblat *</label>
+          <input id="pf-cant" type="number" min="1" value="${pf.cantitate||""}" placeholder="ex: 10" oninput="pfSet('cantitate',this.value)">
+          ${tip?`<div class="hint ${hintCls}">
+            Disponibil: ${st.capac} capace · ${st.picior} picioare → poti asambla max <strong>${cantMax}</strong> butoaie
+            ${cantVal>cantMax?`<br>⚠ Nu ai suficiente piese!`:""}
+            ${cantVal>0&&cantVal<=cantMax?`<br>✓ Va folosi ${cantVal} capace + ${cantVal} picioare → ${st.butoaie+cantVal} butoaie finite`:""}
+          </div>`:""}
+        </div>
+      </div>`;
+    }
+    if(type==="vanzare"){
+      html+=`<div class="form-grid g2">
+        <div class="field">
+          <label>Cantitate vanduta *</label>
+          <input id="pf-cant" type="number" min="1" value="${pf.cantitate||""}" placeholder="ex: 5" oninput="pfSet('cantitate',this.value)">
+          ${tip?`<div class="hint ${(parseInt(pf.cantitate)||0)>st.butoaie?'err':'ok'}">Stoc curent: <strong>${st.butoaie}</strong> butoaie</div>`:""}
+        </div>
+        <div class="field"><label>Client</label>
+          <input id="pf-client" value="${esc(pf.client||"")}" placeholder="ex: SC ABC SRL" oninput="pfSet('client',this.value)"></div>
+      </div>`;
+    }
+    html+=`<div class="flex-row">
+      <button class="btn primary" style="background:${colors[type]}" id="pf-submit">
+        ${type==="productie"?"✅ Salveaza productia":type==="imbinare"?"🔧 Confirma asamblarea":"🚚 Confirma vanzarea"}
+      </button>
+      <button class="btn" onclick="pfReset()">Reseteaza</button>
+    </div></div>`;
+  }
+
+  if(S.prodTab==="productie"){html+=batchForm("productie",tipuri,isGest,activeUser);}
+  if(S.prodTab==="imbinare"){html+=batchForm("imbinare",tipuri,isGest,activeUser);}
+  if(S.prodTab==="vanzare"){prodForm("vanzare");}
+
+  // ── Recent events (for productie/imbinare/vanzare tabs) ────────────
+  if(["productie","imbinare","vanzare"].includes(S.prodTab)){
+    const relevantType=S.prodTab==="vanzare"?"vanzare":S.prodTab;
+    const recent=[...events].filter(e=>e.type===relevantType).reverse().slice(0,15);
+    if(recent.length>0){
+      html+=`<div style="font-size:12px;color:#aaa;margin:10px 0 6px;text-align:right">Ultimele ${recent.length} inregistrari</div>`;
+      const evColors={productie:"#2e7d32",imbinare:"#1565C0",vanzare:"#7B3F00"};
+      const evBgs={productie:"prod",imbinare:"imb",vanzare:"van"};
+      recent.forEach(e=>{
+        const tip=tipuri.find(t=>t.id===e.tipId);
+        html+=`<div class="ev-row ${evBgs[e.type]}">
+          <span class="badge ${e.type==='productie'?'in':e.type==='imbinare'?'imb':'out'}" style="color:${evColors[e.type]}">
+            ${e.type==='productie'?'PROD':e.type==='imbinare'?'IMB':'VAN'}
+          </span>
+          <span style="flex:1;font-weight:500">${tip?esc(tip.label):"?"}</span>
+          <span style="font-weight:600;color:${evColors[e.type]}">
+            ${e.type==='productie'?`+${e.capac||0} cap / +${e.picior||0} pic`:`${e.cantitate||0} buc`}
+          </span>
+          <span style="font-size:11px;color:#888">${e.date} ${e.time||""}${e.by?" · "+esc(e.by):""}${e.client?" · "+esc(e.client):""}</span>
+        </div>`;
+      });
+    }
+  }
+
+  // ── Raport ─────────────────────────────────────────────────────────
+  if(S.prodTab==="raport"){
+    html+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <span style="font-size:15px;font-weight:600">Raport zilnic productie</span>
+      <input type="date" value="${S.prodReportDate}" onchange="S.prodReportDate=this.value;render()"
+        style="padding:7px 10px;border:1.5px solid #ddd;border-radius:7px;font-size:13px;background:white">
+    </div>`;
+    const dayEv=events.filter(e=>e.date===S.prodReportDate);
+    const dayProd=dayEv.filter(e=>e.type==="productie");
+    const dayImb=dayEv.filter(e=>e.type==="imbinare");
+    const dayVan=dayEv.filter(e=>e.type==="vanzare");
+    html+=`<div class="stats-grid">
+      <div class="stat"><div class="stat-val" style="color:#3B6D11">${dayProd.reduce((s,e)=>s+(+e.capac||0)+(+e.picior||0),0)}</div><div class="stat-lbl">Piese produse</div></div>
+      <div class="stat"><div class="stat-val" style="color:#185FA5">${dayImb.reduce((s,e)=>s+(+e.cantitate||0),0)}</div><div class="stat-lbl">Butoaie asamblate</div></div>
+      <div class="stat"><div class="stat-val" style="color:#7B3F00">${dayVan.reduce((s,e)=>s+(+e.cantitate||0),0)}</div><div class="stat-lbl">Butoaie vandute</div></div>
+    </div>`;
+    [["productie","🔨 Productie piese","#3B6D11",dayProd],["imbinare","🔧 Asamblari","#185FA5",dayImb],["vanzare","🚚 Vanzari","#7B3F00",dayVan]].forEach(([type,title,color,items])=>{
+      html+=`<div style="padding:7px 13px;border-radius:8px;font-size:13px;font-weight:600;color:white;background:${color};margin-bottom:6px">${title} — ${items.length}</div>`;
+      if(items.length===0){html+=`<div style="background:white;border-radius:8px;padding:12px;font-size:13px;color:#aaa;text-align:center;margin-bottom:12px">Nu exista inregistrari.</div>`;}
+      else{
+        html+=`<div style="background:white;border-radius:8px;margin-bottom:13px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)">`;
+        items.forEach(e=>{const tip=tipuri.find(t=>t.id===e.tipId);
+          html+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 13px;border-bottom:1px solid #f0f0f0;font-size:13px">
+            <div><div style="font-weight:500">${tip?esc(tip.label):"?"}</div>
+            <div style="font-size:11px;color:#888">${e.time||""}${e.by?" · "+esc(e.by):""}${e.client?" · "+esc(e.client):""}</div></div>
+            <div style="font-weight:600;color:${color}">
+              ${type==="productie"?`Cap: ${e.capac||0} · Pic: ${e.picior||0}`:`${e.cantitate||0} buc`}
+            </div>
+          </div>`;
+        });
+        html+=`</div>`;
+      }
+    });
+  }
+
+  // ── Tipuri butoi management (gestionar only) ───────────────────────
+  if(S.prodTab==="tipuri_prod"&&isGest){
+    html+=`<div class="section-title">⚙ Tipuri de Butoi</div>`;
+    if(S.showProdTipForm){
+      const tf=S.prodTipForm;
+      html+=`<div class="form-card" style="border:2px solid #7B3F00;margin-bottom:14px">
+        <div class="section-title" style="color:#7B3F00">${S.editProdTipId?"✏️ Editeaza tip":"➕ Adauga tip butoi"}</div>
+        <div class="form-grid g2">
+          <div class="field"><label>Denumire *</label><input id="pt-label" value="${esc(tf.label)}" placeholder="ex: Butoi 100L"></div>
+          <div class="field"><label>ID (auto)</label><input id="pt-id" value="${esc(tf.id||"")}" placeholder="ex: b100" ${S.editProdTipId?"readonly":""}></div>
+        </div>
+        <div class="form-grid g3">
+          <div class="field"><label>Stoc initial butoaie</label><input id="pt-stb" type="number" value="${tf.stocInitialButoaie||0}"></div>
+          <div class="field"><label>Stoc initial capace</label><input id="pt-stc" type="number" value="${tf.stocInitialCapac||0}"></div>
+          <div class="field"><label>Stoc initial picioare</label><input id="pt-stp" type="number" value="${tf.stocInitialPicior||0}"></div>
+        </div>
+        <div class="flex-row"><button class="btn primary" style="background:#7B3F00" id="pt-save">✅ Salveaza</button><button class="btn" onclick="S.showProdTipForm=false;render()">Anuleaza</button></div>
+      </div>`;
+    } else {
+      html+=`<div style="display:flex;justify-content:flex-end;margin-bottom:11px"><button class="btn primary" style="background:#7B3F00" onclick="newProdTip()">➕ Adauga tip butoi</button></div>`;
+    }
+    if(tipuri.length===0){html+=`<div class="empty"><div class="ico">🪣</div><p>Nu exista tipuri. Adaugati primul tip de butoi.</p></div>`;}
+    else{tipuri.forEach(t=>{
+      const st=calcStocProd(t.id);
+      html+=`<div class="user-row">
+        <div style="width:38px;height:38px;border-radius:8px;background:#7B3F00;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px">🪣</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:600">${esc(t.label)}</div>
+          <div style="font-size:12px;color:#888">Butoaie: ${st.butoaie} · Capace: ${st.capac} · Picioare: ${st.picior}</div>
+        </div>
+        <button class="btn sm" onclick="editProdTip('${t.id}')">✏️</button>
+      </div>`;
+    });}
+  }
+
+  return html;
+}
+
+// ── batchForm — introducere in lot ────────────────────────────────────────
+function batchForm(type, tipuri, isGest, activeUser){
+  const br=S.prodBatchRow;
+  const batch=S.prodBatch;
+  const color=type==="productie"?"#3B6D11":"#185FA5";
+  const title=type==="productie"?"🔨 Productie piese — introducere in lot":"🔧 Asamblare butoaie — introducere in lot";
+  const tipOpts=tipuri.map(t=>`<option value="${t.id}"${br.tipId===t.id?" selected":""}>${esc(t.label)}</option>`).join("");
+  let h=`<div class="card" style="border:2px solid ${color}">
+    <div class="section-title" style="color:${color}">${title}</div>
+    <div class="form-grid g2" style="margin-bottom:10px">
+      <div class="field"><label>Data (pentru tot lotul)</label>
+        <input type="date" id="b-date" value="${S.prodBatchDate}" onchange="S.prodBatchDate=this.value"></div>
+      <div class="field"><label>Operator (pentru tot lotul)</label>
+        <input id="b-by" value="${esc(S.prodBatchBy||(activeUser?activeUser.name:''))}" placeholder="Numele operatorului" oninput="S.prodBatchBy=this.value"></div>
+    </div>
+    <div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:600;color:#555;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Adauga rand</div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div class="field" style="flex:2;min-width:140px">
+          <label>Tip butoi</label>
+          <select id="br-tip" onchange="brSet('tipId',this.value)">
+            <option value="">— Selectati —</option>${tipOpts}
+          </select>
+        </div>`;
+  if(type==="productie"){
+    h+=`<div class="field" style="flex:1;min-width:80px"><label>Capace</label>
+          <input id="br-cap" type="number" min="0" value="${br.capac||''}" placeholder="0" oninput="brSet('capac',this.value)"></div>
+        <div class="field" style="flex:1;min-width:80px"><label>Picioare</label>
+          <input id="br-pic" type="number" min="0" value="${br.picior||''}" placeholder="0" oninput="brSet('picior',this.value)"></div>`;
+  } else {
+    const tip=tipuri.find(t=>t.id===br.tipId);
+    const st=tip?calcStocProd(br.tipId):{capac:0,picior:0};
+    const maxPosibil=tip?Math.min(st.capac,st.picior):0;
+    h+=`<div class="field" style="flex:1;min-width:100px"><label>Nr. butoaie</label>
+          <input id="br-cant" type="number" min="1" value="${br.cantitate||''}" placeholder="ex: 10" oninput="brSet('cantitate',this.value)">
+          ${tip?`<div class="hint ${parseInt(br.cantitate||0)>maxPosibil?'err':'ok'}">Max posibil: ${maxPosibil}</div>`:''}
+        </div>`;
+  }
+  h+=`  <button class="btn primary" style="background:${color};flex-shrink:0;align-self:flex-end" onclick="batchAdd('${type}')">+ Adaugă</button>
+      </div>
+    </div>`;
+  // Tabel lot
+  if(batch.length===0){
+    h+=`<div style="text-align:center;padding:16px;color:#aaa;font-size:13px;background:#f8f9fa;border-radius:8px;margin-bottom:12px">
+      Lista este goala — adaugati randuri folosind formularul de mai sus
+    </div>`;
+  } else {
+    h+=`<div style="overflow-x:auto;margin-bottom:12px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:#f0f2f5">
+          <th style="padding:8px 10px;text-align:left;font-weight:600;color:#555;border-bottom:2px solid #e0e0e0">Tip butoi</th>`;
+    if(type==="productie"){
+      h+=`<th style="padding:8px 10px;text-align:center;font-weight:600;color:#555;border-bottom:2px solid #e0e0e0">Capace</th>
+          <th style="padding:8px 10px;text-align:center;font-weight:600;color:#555;border-bottom:2px solid #e0e0e0">Picioare</th>`;
+    } else {
+      h+=`<th style="padding:8px 10px;text-align:center;font-weight:600;color:#555;border-bottom:2px solid #e0e0e0">Nr. butoaie</th>
+          <th style="padding:8px 10px;text-align:center;font-weight:600;color:#555;border-bottom:2px solid #e0e0e0">Stoc disponibil</th>`;
+    }
+    h+=`<th style="padding:8px 10px;text-align:center;border-bottom:2px solid #e0e0e0;width:40px"></th></tr></thead><tbody>`;
+    batch.forEach((r,i)=>{
+      const tip=tipuri.find(t=>t.id===r.tipId);
+      const nm=tip?esc(tip.label):"?";
+      const rowBg=i%2===0?"white":"#f8f9fa";
+      h+=`<tr style="background:${rowBg}"><td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-weight:500">${nm}</td>`;
+      if(type==="productie"){
+        h+=`<td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f0f0f0;color:#3B6D11;font-weight:600">${r.capac||0}</td>
+            <td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f0f0f0;color:#3B6D11;font-weight:600">${r.picior||0}</td>`;
+      } else {
+        const st=calcStocProd(r.tipId);
+        const maxP=Math.min(st.capac,st.picior);
+        const ok=(r.cantitate||0)<=maxP;
+        h+=`<td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f0f0f0;font-weight:600;color:${ok?'#185FA5':'#c62828'}">${r.cantitate||0}</td>
+            <td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f0f0f0;font-size:12px;color:${ok?'#2e7d32':'#c62828'}">
+              ${ok?`✓ ${maxP} disp.`:`⚠ doar ${maxP}!`}
+            </td>`;
+      }
+      h+=`<td style="padding:4px;text-align:center;border-bottom:1px solid #f0f0f0">
+            <button onclick="batchRemove(${i})" style="background:none;border:none;cursor:pointer;color:#f44336;font-size:16px;padding:2px 6px">×</button>
+          </td></tr>`;
+    });
+    // Row totale
+    if(type==="productie"){
+      const totC=batch.reduce((s,r)=>s+(+r.capac||0),0);
+      const totP=batch.reduce((s,r)=>s+(+r.picior||0),0);
+      h+=`<tr style="background:#e8f5e9;font-weight:700">
+        <td style="padding:8px 10px;border-top:2px solid #c8e6c9">TOTAL (${batch.length} tipuri)</td>
+        <td style="padding:8px 10px;text-align:center;border-top:2px solid #c8e6c9;color:#2e7d32">${totC}</td>
+        <td style="padding:8px 10px;text-align:center;border-top:2px solid #c8e6c9;color:#2e7d32">${totP}</td>
+        <td style="border-top:2px solid #c8e6c9"></td></tr>`;
+    } else {
+      const totBut=batch.reduce((s,r)=>s+(+r.cantitate||0),0);
+      h+=`<tr style="background:#e3f2fd;font-weight:700">
+        <td style="padding:8px 10px;border-top:2px solid #bbdefb">TOTAL (${batch.length} tipuri)</td>
+        <td style="padding:8px 10px;text-align:center;border-top:2px solid #bbdefb;color:#185FA5">${totBut} butoaie</td>
+        <td style="padding:8px 10px;border-top:2px solid #bbdefb"></td>
+        <td style="border-top:2px solid #bbdefb"></td></tr>`;
+    }
+    h+=`</tbody></table></div>`;
+  }
+  h+=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <button class="btn primary" style="background:${color}${batch.length===0?';opacity:.5':''}" onclick="batchSave('${type}')">
+      ${type==="productie"?`✅ Salveaza tot (${batch.length} randuri)`:`🔧 Confirma asamblarea (${batch.length} tipuri)`}
+    </button>
+    ${batch.length>0?`<button class="btn" onclick="batchClear()">🗑 Goleste lista</button>`:''}
+  </div></div>`;
+  return h;
+}
+
+// ── Productie events ───────────────────────────────────────────────────────
+function attachProdEvents(){
+  const sub=document.getElementById('pf-submit');
+  if(sub){sub.addEventListener('click',()=>{
+    const type=S.prodTab==="vanzare"?"vanzare":S.prodTab;
+    const pf=S.prodEvForm;
+    const tipId=document.getElementById('pf-tip')?.value||"";
+    const byVal=document.getElementById('pf-by')?.value||"";
+    const dateVal=document.getElementById('pf-date')?.value||new Date().toISOString().slice(0,10);
+    if(!tipId){showToast("⚠ Selectati tipul de butoi!");return;}
+    const tip=DB.productie.tipuri.find(t=>t.id===tipId);
+    if(!tip)return;
+    const st=calcStocProd(tipId);
+    const now=new Date();
+    const ev={id:Date.now(),date:dateVal,time:now.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),type,tipId,by:byVal};
+    if(type==="productie"){
+      const cap=parseInt(document.getElementById('pf-capac')?.value)||0;
+      const pic=parseInt(document.getElementById('pf-picior')?.value)||0;
+      if(cap<=0&&pic<=0){showToast("⚠ Introduceti cel putin o cantitate!");return;}
+      ev.capac=cap;ev.picior=pic;
+    }
+    if(type==="imbinare"){
+      const cant=parseInt(document.getElementById('pf-cant')?.value)||0;
+      if(cant<=0){showToast("⚠ Introduceti cantitatea de asamblat!");return;}
+      if(cant>Math.min(st.capac,st.picior)){showToast(`⚠ Stoc insuficient! Max ${Math.min(st.capac,st.picior)} buc`);return;}
+      ev.cantitate=cant;
+    }
+    if(type==="vanzare"){
+      const cant=parseInt(document.getElementById('pf-cant')?.value)||0;
+      if(cant<=0){showToast("⚠ Introduceti cantitatea vanduta!");return;}
+      if(cant>st.butoaie){showToast(`⚠ Stoc insuficient! Disponibil: ${st.butoaie} buc`);return;}
+      ev.cantitate=cant;ev.client=document.getElementById('pf-client')?.value||"";
+    }
+    DB.productie.events.push(ev);
+    saveDB();pfReset();
+    const msgs={productie:"✅ Productie inregistrata!",imbinare:"🔧 Asamblare confirmata!",vanzare:"🚚 Vanzare inregistrata!"};
+    showToast(msgs[type]);render();
+  });}
+  const ptSave=document.getElementById('pt-save');
+  if(ptSave){ptSave.addEventListener('click',()=>{
+    const label=document.getElementById('pt-label')?.value?.trim()||"";
+    if(!label){showToast("⚠ Introduceti denumirea!");return;}
+    const id=S.editProdTipId||document.getElementById('pt-id')?.value?.trim()||label.toLowerCase().replace(/[^a-z0-9]/g,"")||("tip"+Date.now());
+    const stb=parseFloat(document.getElementById('pt-stb')?.value)||0;
+    const stc=parseFloat(document.getElementById('pt-stc')?.value)||0;
+    const stp=parseFloat(document.getElementById('pt-stp')?.value)||0;
+    if(S.editProdTipId){
+      DB.productie.tipuri=DB.productie.tipuri.map(t=>t.id===S.editProdTipId?{...t,label,stocInitialButoaie:stb,stocInitialCapac:stc,stocInitialPicior:stp}:t);
+    } else {
+      if(DB.productie.tipuri.find(t=>t.id===id)){showToast("⚠ ID deja exista!");return;}
+      DB.productie.tipuri.push({id,label,stocInitialButoaie:stb,stocInitialCapac:stc,stocInitialPicior:stp});
+    }
+    saveDB();S.showProdTipForm=false;S.editProdTipId=null;showToast("✅ Tip salvat!");render();
+  });}
+}
+function pfSet(k,v){S.prodEvForm[k]=v;render();}
+function pfReset(){S.prodEvForm={type:"productie",tipId:"",capac:"",picior:"",cantitate:"",client:"",note:"",date:new Date().toISOString().slice(0,10)};render();}
+function brSet(k,v){S.prodBatchRow[k]=v;render();}
+function batchAdd(type){
+  const br=S.prodBatchRow;
+  if(!br.tipId){showToast("⚠ Selectati tipul!");return;}
+  if(type==="productie"){
+    const cap=parseInt(br.capac)||0, pic=parseInt(br.picior)||0;
+    if(cap<=0&&pic<=0){showToast("⚠ Introduceti cel putin o cantitate!");return;}
+    S.prodBatch.push({tipId:br.tipId,capac:cap,picior:pic});
+  } else {
+    const cant=parseInt(br.cantitate)||0;
+    if(cant<=0){showToast("⚠ Introduceti cantitatea!");return;}
+    S.prodBatch.push({tipId:br.tipId,cantitate:cant});
+  }
+  S.prodBatchRow={tipId:"",capac:"",picior:"",cantitate:""};
+  render();
+}
+function batchRemove(i){S.prodBatch.splice(i,1);render();}
+function batchClear(){S.prodBatch=[];render();}
+function batchSave(type){
+  if(!S.prodBatch.length){showToast("⚠ Lista este goala!");return;}
+  const now=new Date();
+  const dateVal=S.prodBatchDate||now.toISOString().slice(0,10);
+  const byVal=S.prodBatchBy||(getActiveUser()||{name:""}).name;
+  // Validare imbinare: verifica stoc suficient
+  if(type==="imbinare"){
+    const totals={};
+    S.prodBatch.forEach(r=>{totals[r.tipId]=(totals[r.tipId]||0)+(+r.cantitate||0);});
+    for(const [tipId,cant] of Object.entries(totals)){
+      const st=calcStocProd(tipId);
+      if(cant>Math.min(st.capac,st.picior)){
+        const tip=DB.productie.tipuri.find(t=>t.id===tipId);
+        showToast("⚠ Stoc insuficient pentru "+((tip&&tip.label)||tipId)+"!");return;
+      }
+    }
+  }
+  const time=now.toLocaleTimeString("ro-RO",{hour:"2-digit",minute:"2-digit"});
+  S.prodBatch.forEach(r=>{
+    const ev={id:Date.now()+Math.random(),date:dateVal,time,type,tipId:r.tipId,by:byVal};
+    if(type==="productie"){ev.capac=r.capac||0;ev.picior=r.picior||0;}
+    else{ev.cantitate=r.cantitate||0;}
+    DB.productie.events.push(ev);
+  });
+  const n=S.prodBatch.length;
+  S.prodBatch=[];S.prodBatchRow={tipId:"",capac:"",picior:"",cantitate:""};
+  saveDB();
+  showToast(type==="productie"?"✅ "+n+" productii salvate!":"🔧 "+n+" asamblari confirmate!");render();
+}
+function newProdTip(){S.prodTipForm={...EMPTY_PROD_TIP};S.editProdTipId=null;S.showProdTipForm=true;render();}
+function editProdTip(id){const t=DB.productie.tipuri.find(t=>t.id===id);if(!t)return;S.prodTipForm={...t};S.editProdTipId=id;S.showProdTipForm=true;render();}
+
+// Fose si rezervoare fibra helpers
+function frComp(id){return (DB.foserez.components||[]).find(c=>c.id===id)||null;}
+function frProd(id){return (DB.foserez.products||[]).find(p=>p.id===id)||null;}
+function frRecipeWithOptions(product, manholeId){
+  const selected=manholeId||product.standardManhole||"gura_dn520";
+  const selectedCover=(DB.foserez.components||[]).find(c=>c.coverFor===selected);
+  const rows=[];
+  (product.recipe||[]).forEach(r=>{
+    const c=frComp(r.componentId);
+    if(c&&c.category==="Guri vizitare"){if(!rows.find(x=>x.componentId===selected))rows.push({componentId:selected,qty:r.qty||1});return;}
+    if(c&&c.category==="Capace guri vizitare"){if(selectedCover&&!rows.find(x=>x.componentId===selectedCover.id))rows.push({componentId:selectedCover.id,qty:r.qty||1});return;}
+    rows.push({componentId:r.componentId,qty:+r.qty||0});
+  });
+  return rows.filter(r=>r.componentId&&(+r.qty||0)>0);
+}
+function calcFrCompStock(componentId){
+  const c=frComp(componentId);let st=+(c&&c.initial||0);
+  (DB.foserez.events||[]).forEach(e=>{
+    if(e.type==="component_prod"&&e.componentId===componentId)st+=+e.qty||0;
+    if(e.type==="product_assembly"){const p=frProd(e.productId);if(p)frRecipeWithOptions(p,e.manholeId).forEach(r=>{if(r.componentId===componentId)st-=(+r.qty||0)*(+e.qty||0);});}
+  });
+  return Math.round(st*100)/100;
+}
+function calcFrProductStock(productId){
+  const p=frProd(productId);let st=+(p&&p.initial||0);
+  (DB.foserez.events||[]).forEach(e=>{
+    if(e.productId!==productId)return;
+    if(e.type==="product_assembly")st+=+e.qty||0;
+    if(e.type==="product_sale")st-=+e.qty||0;
+  });
+  return Math.max(0,Math.round(st*100)/100);
+}
+function frMaxBuild(product, manholeId){
+  const vals=frRecipeWithOptions(product,manholeId).map(r=>r.qty>0?Math.floor(calcFrCompStock(r.componentId)/r.qty):999999);
+  return vals.length?Math.max(0,Math.min(...vals)):0;
+}
+function frRecipeText(recipe){return (recipe||[]).map(r=>r.componentId+" = "+r.qty).join("\n");}
+function parseFrRecipe(text){
+  return String(text||"").split(/\n+/).map(line=>line.trim()).filter(Boolean).map(line=>{
+    const m=line.split(/[:=,;]/);return{componentId:(m[0]||"").trim(),qty:parseFloat((m[1]||"1").replace(",","."))||1};
+  }).filter(r=>r.componentId);
+}
+function renderFoseRez(isGest,activeUser){
+  const fr=DB.foserez, comps=fr.components||[], products=fr.products||[], events=fr.events||[];
+  const tabs=[["dashboard","Dashboard"],["componente","Productie componente"],["asamblare","Asamblare produse"],["vanzare","Vanzari"],["raport","Raport"]];
+  if(isGest)tabs.push(["setari","Setari retete"]);
+  let html=`<div class="sub-tabs">${tabs.map(([id,lbl])=>`<button class="sub-btn${S.frTab===id?' active':''}" onclick="S.frTab='${id}';render()">${lbl}</button>`).join("")}</div>`;
+  const today=new Date().toISOString().slice(0,10);
+  if(S.frTab==="dashboard"){
+    const totalComp=comps.reduce((s,c)=>s+calcFrCompStock(c.id),0), totalProd=products.reduce((s,p)=>s+calcFrProductStock(p.id),0);
+    const builtToday=events.filter(e=>e.type==="product_assembly"&&e.date===today).reduce((s,e)=>s+(+e.qty||0),0);
+    html+=`<div class="stats-grid"><div class="stat"><div class="stat-val" style="color:#00695C">${fmt(totalProd)}</div><div class="stat-lbl">Produse finite</div></div><div class="stat"><div class="stat-val" style="color:#185FA5">${fmt(totalComp)}</div><div class="stat-lbl">Componente brute</div></div><div class="stat"><div class="stat-val" style="color:#3B6D11">${fmt(builtToday)}</div><div class="stat-lbl">Asamblate azi</div></div></div>`;
+    const groups=[...new Set(products.map(p=>p.gama||"Produse"))];
+    groups.forEach(gr=>{html+=`<div class="sec-pill" style="background:#00695C">${esc(gr)}</div><div class="butoi-grid">`;
+      products.filter(p=>(p.gama||"Produse")===gr).forEach(p=>{const st=calcFrProductStock(p.id), mx=frMaxBuild(p,p.standardManhole);html+=`<div class="butoi-card${st<1?' low':''}"><div class="bc-name">${esc(p.label)}</div><div class="bc-row"><span class="lbl">Stoc finit</span><span class="val ${st<1?'bad':st<3?'warn':'ok'}">${fmt(st)}</span></div><div class="bc-row"><span class="lbl">Pot asambla</span><span class="val" style="color:#185FA5">${fmt(mx)}</span></div><div class="bc-row"><span class="lbl">Gura standard</span><span class="val">${esc(frComp(p.standardManhole)?.label||"-")}</span></div></div>`;});
+      html+=`</div>`;
+    });
+  }
+  if(S.frTab==="componente"){
+    const ef=S.frEventForm;const opts=comps.map(c=>`<option value="${c.id}"${ef.targetId===c.id?' selected':''}>${esc(c.label)} - stoc: ${fmt(calcFrCompStock(c.id))}</option>`).join("");
+    html+=`<div class="card" style="border:2px solid #00695C"><div class="section-title" style="color:#00695C">Inregistreaza productie componenta</div><div class="form-grid g4"><div class="field"><label>Componenta</label><select id="fr-cid" onchange="frSet('targetId',this.value)"><option value="">Selectati</option>${opts}</select></div><div class="field"><label>Cantitate produsa</label><input id="fr-qty" type="number" step="0.01" min="0" value="${esc(ef.qty)}" oninput="frSet('qty',this.value)"></div><div class="field"><label>Data</label><input type="date" value="${ef.date}" onchange="frSet('date',this.value)"></div><div class="field"><label>Operator</label><input value="${esc(ef.by||(activeUser?activeUser.name:''))}" oninput="frSet('by',this.value)"></div></div><button class="btn primary" style="background:#00695C" onclick="frSaveComponentProd()">Salveaza productia</button></div>`;
+    html+=renderFrRecent("component_prod");
+  }
+  if(S.frTab==="asamblare"){
+    const ef=S.frEventForm,p=frProd(ef.targetId), manholes=comps.filter(c=>c.category==="Guri vizitare");
+    const opts=products.map(p=>`<option value="${p.id}"${ef.targetId===p.id?' selected':''}>${esc(p.label)} - finit: ${fmt(calcFrProductStock(p.id))}</option>`).join("");
+    const mopts=manholes.map(c=>`<option value="${c.id}"${(ef.manholeId||"gura_dn520")===c.id?' selected':''}>${esc(c.label)}</option>`).join("");
+    const max=p?frMaxBuild(p,ef.manholeId):0, qty=parseFloat(ef.qty)||0;
+    html+=`<div class="card" style="border:2px solid #185FA5"><div class="section-title" style="color:#185FA5">Asambleaza fosa / rezervor</div><div class="form-grid g3"><div class="field"><label>Produs</label><select onchange="frSet('targetId',this.value)"><option value="">Selectati</option>${opts}</select></div><div class="field"><label>Gura vizitare</label><select onchange="frSet('manholeId',this.value)">${mopts}</select><div class="hint">DN520 este standard; DN800/DN1000 se pot alege optional.</div></div><div class="field"><label>Cantitate</label><input type="number" step="1" min="1" value="${esc(ef.qty)}" oninput="frSet('qty',this.value)"><div class="hint ${qty>max?'err':'ok'}">Max posibil: <strong>${fmt(max)}</strong></div></div></div><div class="form-grid g2"><div class="field"><label>Data</label><input type="date" value="${ef.date}" onchange="frSet('date',this.value)"></div><div class="field"><label>Operator</label><input value="${esc(ef.by||(activeUser?activeUser.name:''))}" oninput="frSet('by',this.value)"></div></div>`;
+    if(p){html+=`<div style="background:#f8f9fa;border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px">${frRecipeWithOptions(p,ef.manholeId).map(r=>{const c=frComp(r.componentId),need=(+r.qty||0)*(qty||1),st=calcFrCompStock(r.componentId);return `<div class="bc-row"><span class="lbl">${esc(c?c.label:r.componentId)} x ${fmt(r.qty)}</span><span class="val ${need>st?'bad':'ok'}">necesar ${fmt(need)} / stoc ${fmt(st)}</span></div>`;}).join("")}</div>`;}
+    html+=`<button class="btn primary" style="background:#185FA5" onclick="frSaveAssembly()">Confirma asamblarea</button></div>`;
+    html+=renderFrRecent("product_assembly");
+  }
+  if(S.frTab==="vanzare"){
+    const ef=S.frEventForm, opts=products.map(p=>`<option value="${p.id}"${ef.targetId===p.id?' selected':''}>${esc(p.label)} - stoc: ${fmt(calcFrProductStock(p.id))}</option>`).join("");
+    html+=`<div class="card" style="border:2px solid #7B3F00"><div class="section-title" style="color:#7B3F00">Inregistreaza vanzare</div><div class="form-grid g3"><div class="field"><label>Produs</label><select onchange="frSet('targetId',this.value)"><option value="">Selectati</option>${opts}</select></div><div class="field"><label>Cantitate vanduta</label><input type="number" min="1" value="${esc(ef.qty)}" oninput="frSet('qty',this.value)"></div><div class="field"><label>Client</label><input value="${esc(ef.client)}" oninput="frSet('client',this.value)"></div></div><div class="form-grid g2"><div class="field"><label>Data</label><input type="date" value="${ef.date}" onchange="frSet('date',this.value)"></div><div class="field"><label>Operator</label><input value="${esc(ef.by||(activeUser?activeUser.name:''))}" oninput="frSet('by',this.value)"></div></div><button class="btn primary" style="background:#7B3F00" onclick="frSaveSale()">Confirma vanzarea</button></div>`;
+    html+=renderFrRecent("product_sale");
+  }
+  if(S.frTab==="raport"){
+    const d=S.prodReportDate, day=events.filter(e=>e.date===d);
+    html+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap"><span style="font-size:15px;font-weight:600">Raport zilnic fose si rezervoare</span><input type="date" value="${d}" onchange="S.prodReportDate=this.value;render()" style="padding:7px 10px;border:1.5px solid #ddd;border-radius:7px;font-size:13px;background:white"></div><div class="stats-grid"><div class="stat"><div class="stat-val" style="color:#00695C">${fmt(day.filter(e=>e.type==='component_prod').reduce((s,e)=>s+(+e.qty||0),0))}</div><div class="stat-lbl">Componente produse</div></div><div class="stat"><div class="stat-val" style="color:#185FA5">${fmt(day.filter(e=>e.type==='product_assembly').reduce((s,e)=>s+(+e.qty||0),0))}</div><div class="stat-lbl">Produse asamblate</div></div><div class="stat"><div class="stat-val" style="color:#7B3F00">${fmt(day.filter(e=>e.type==='product_sale').reduce((s,e)=>s+(+e.qty||0),0))}</div><div class="stat-lbl">Vandute</div></div></div>`;
+    day.slice().reverse().forEach(e=>html+=frEventRow(e));
+  }
+  if(S.frTab==="setari"&&isGest){
+    html+=renderFrSettings();
+  }
+  return html;
+}
+function renderFrRecent(type){const rows=(DB.foserez.events||[]).filter(e=>e.type===type).slice().reverse().slice(0,15);return rows.length?`<div style="font-size:12px;color:#aaa;margin:10px 0 6px;text-align:right">Ultimele ${rows.length} inregistrari</div>${rows.map(frEventRow).join("")}`:"";}
+function frEventRow(e){const isComp=e.type==="component_prod", item=isComp?frComp(e.componentId):frProd(e.productId);const cls=e.type==="product_sale"?"van":e.type==="product_assembly"?"imb":"prod";const color=e.type==="product_sale"?"#7B3F00":e.type==="product_assembly"?"#185FA5":"#00695C";return `<div class="ev-row ${cls}"><span class="badge" style="color:${color}">${isComp?'COMP':e.type==='product_assembly'?'ASM':'VAN'}</span><span style="flex:1;font-weight:500">${esc(item?item.label:'?')}</span><span style="font-weight:600;color:${color}">${fmt(e.qty)} buc</span><span style="font-size:11px;color:#888">${e.date} ${e.time||""}${e.by?" · "+esc(e.by):""}${e.client?" · "+esc(e.client):""}</span></div>`;}
+function renderFrSettings(){
+  const comps=DB.foserez.components||[], products=DB.foserez.products||[];let html=`<div class="section-title">Componente si retete</div>`;
+  if(S.showFrCompForm){const f=S.frCompForm;html+=`<div class="form-card" style="border:2px solid #00695C"><div class="section-title" style="color:#00695C">${S.editFrCompId?'Editeaza componenta':'Adauga componenta'}</div><div class="form-grid g3"><div class="field"><label>Denumire</label><input id="frcl" value="${esc(f.label)}"></div><div class="field"><label>ID</label><input id="frci" value="${esc(f.id)}" ${S.editFrCompId?'readonly':''}></div><div class="field"><label>Categorie</label><input id="frcc" value="${esc(f.category)}"></div></div><div class="form-grid g4"><div class="field"><label>UM</label><input id="frcu" value="${esc(f.um||'buc')}"></div><div class="field"><label>Stoc initial</label><input id="frcs" type="number" step="0.01" value="${f.initial||0}"></div><div class="field"><label>Sectie</label><input id="frcsec" value="${esc(f.sectie||'')}"></div><div class="field"><label>Rasina</label><input id="frcr" value="${esc(f.resin||'')}"></div></div><button class="btn primary" style="background:#00695C" onclick="frSaveComp()">Salveaza</button><button class="btn" onclick="S.showFrCompForm=false;render()">Anuleaza</button></div>`;}else html+=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn primary" style="background:#00695C" onclick="frNewComp()">Adauga componenta</button></div>`;
+  html+=`<div class="card"><div class="section-title">Componente</div>${comps.map(c=>`<div class="bc-row"><span class="lbl">${esc(c.label)} <small style="color:#aaa">(${esc(c.id)})</small></span><span class="val">${fmt(calcFrCompStock(c.id))} ${esc(c.um||'buc')}</span><button class="btn sm" onclick="frEditComp('${c.id}')">Editeaza</button></div>`).join("")}</div>`;
+  if(S.showFrProdForm){const f=S.frProdForm;html+=`<div class="form-card" style="border:2px solid #185FA5"><div class="section-title" style="color:#185FA5">${S.editFrProdId?'Editeaza produs':'Adauga produs'}</div><div class="form-grid g3"><div class="field"><label>Denumire</label><input id="frpl" value="${esc(f.label)}"></div><div class="field"><label>ID</label><input id="frpi" value="${esc(f.id)}" ${S.editFrProdId?'readonly':''}></div><div class="field"><label>Gama</label><input id="frpg" value="${esc(f.gama)}"></div></div><div class="form-grid g3"><div class="field"><label>Volum</label><input id="frpv" value="${esc(f.volum)}"></div><div class="field"><label>Stoc initial</label><input id="frps" type="number" value="${f.initial||0}"></div><div class="field"><label>Gura standard</label><input id="frpm" value="${esc(f.standardManhole||'gura_dn520')}"></div></div><div class="field"><label>Reteta: cate o linie componentId = cantitate</label><textarea id="frpr">${esc(f.recipeText)}</textarea></div><button class="btn primary" style="background:#185FA5" onclick="frSaveProd()">Salveaza produs</button><button class="btn" onclick="S.showFrProdForm=false;render()">Anuleaza</button></div>`;}else html+=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn primary" style="background:#185FA5" onclick="frNewProd()">Adauga produs</button></div>`;
+  html+=`<div class="card"><div class="section-title">Produse si retete</div>${products.map(p=>`<div class="bc-row"><span class="lbl">${esc(p.label)} <small style="color:#aaa">(${esc(p.id)})</small></span><span class="val">stoc ${fmt(calcFrProductStock(p.id))}</span><button class="btn sm" onclick="frEditProd('${p.id}')">Editeaza</button></div>`).join("")}</div>`;
+  return html;
+}
+function frSet(k,v){S.frEventForm[k]=v;render();}
+function frResetEvent(){S.frEventForm={targetId:"",qty:"",date:new Date().toISOString().slice(0,10),by:"",client:"",manholeId:"gura_dn520",note:""};}
+function frSaveComponentProd(){const q=parseFloat(S.frEventForm.qty)||0;if(!S.frEventForm.targetId||q<=0){showToast("Selectati componenta si cantitatea!");return;}const now=new Date();DB.foserez.events.push({id:Date.now(),type:"component_prod",componentId:S.frEventForm.targetId,qty:q,date:S.frEventForm.date,time:now.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),by:S.frEventForm.by});saveDB();frResetEvent();showToast("Productie componenta salvata!");render();}
+function frSaveAssembly(){const p=frProd(S.frEventForm.targetId),q=parseInt(S.frEventForm.qty)||0;if(!p||q<=0){showToast("Selectati produsul si cantitatea!");return;}if(q>frMaxBuild(p,S.frEventForm.manholeId)){showToast("Stoc insuficient la componente!");return;}const now=new Date();DB.foserez.events.push({id:Date.now(),type:"product_assembly",productId:p.id,qty:q,manholeId:S.frEventForm.manholeId||p.standardManhole,date:S.frEventForm.date,time:now.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),by:S.frEventForm.by});saveDB();frResetEvent();showToast("Asamblare confirmata, componentele au fost scazute!");render();}
+function frSaveSale(){const p=frProd(S.frEventForm.targetId),q=parseInt(S.frEventForm.qty)||0;if(!p||q<=0){showToast("Selectati produsul si cantitatea!");return;}if(q>calcFrProductStock(p.id)){showToast("Stoc finit insuficient!");return;}const now=new Date();DB.foserez.events.push({id:Date.now(),type:"product_sale",productId:p.id,qty:q,date:S.frEventForm.date,time:now.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),by:S.frEventForm.by,client:S.frEventForm.client});saveDB();frResetEvent();showToast("Vanzare inregistrata!");render();}
+function frNewComp(){S.frCompForm={id:"",label:"",category:"Componente",um:"buc",initial:0,sectie:"Componente",resin:""};S.editFrCompId=null;S.showFrCompForm=true;render();}
+function frEditComp(id){const c=frComp(id);if(!c)return;S.frCompForm={...c};S.editFrCompId=id;S.showFrCompForm=true;render();}
+function frSaveComp(){const label=document.getElementById("frcl")?.value.trim()||"", id=(document.getElementById("frci")?.value.trim()||label.toLowerCase().replace(/[^a-z0-9]+/g,"_")).replace(/^_+|_+$/g,"");if(!label||!id){showToast("Completati denumirea!");return;}const c={id,label,category:document.getElementById("frcc")?.value||"Componente",um:document.getElementById("frcu")?.value||"buc",initial:parseFloat(document.getElementById("frcs")?.value)||0,sectie:document.getElementById("frcsec")?.value||"",resin:document.getElementById("frcr")?.value||""};if(S.editFrCompId)DB.foserez.components=DB.foserez.components.map(x=>x.id===S.editFrCompId?{...x,...c,id:S.editFrCompId,coverFor:x.coverFor}:x);else DB.foserez.components.push(c);saveDB();S.showFrCompForm=false;showToast("Componenta salvata!");render();}
+function frNewProd(){S.frProdForm={id:"",label:"",gama:"BIOFIBROMAR",volum:"",initial:0,standardManhole:"gura_dn520",recipeText:""};S.editFrProdId=null;S.showFrProdForm=true;render();}
+function frEditProd(id){const p=frProd(id);if(!p)return;S.frProdForm={...p,recipeText:frRecipeText(p.recipe)};S.editFrProdId=id;S.showFrProdForm=true;render();}
+function frSaveProd(){const label=document.getElementById("frpl")?.value.trim()||"", id=(document.getElementById("frpi")?.value.trim()||label.toLowerCase().replace(/[^a-z0-9]+/g,"_")).replace(/^_+|_+$/g,"");if(!label||!id){showToast("Completati denumirea produsului!");return;}const p={id,label,gama:document.getElementById("frpg")?.value||"Produse",volum:document.getElementById("frpv")?.value||"",initial:parseFloat(document.getElementById("frps")?.value)||0,standardManhole:document.getElementById("frpm")?.value||"gura_dn520",recipe:parseFrRecipe(document.getElementById("frpr")?.value||"")};if(S.editFrProdId)DB.foserez.products=DB.foserez.products.map(x=>x.id===S.editFrProdId?{...p,id:S.editFrProdId}:x);else DB.foserez.products.push(p);saveDB();S.showFrProdForm=false;showToast("Produs salvat!");render();}
+
+// ── Actions generale ───────────────────────────────────────────────────────
+function selectUser(id){S.activeUserId=id;localStorage.setItem("fbr_uid",id);S.showLogin=false;render();showToast("Bun venit, "+(DB.users.find(u=>u.id===id)||{name:"?"}).name+"!");}
+function switchUser(){S.showLogin=true;render();}
+function setModule(m){S.module=m;render();}
+function switchGest(g){S.gest=g;S.tab="materiale";S.showMatForm=false;S.delConfirm=null;render();}
+function switchTab(t){S.tab=t;S.showMatForm=false;S.showUserForm=false;S.showGestForm=false;S.delConfirm=null;render();}
+function newMat(){S.matForm={...EMPTY_MAT};S.editMatId=null;S.showMatForm=true;render();window.scrollTo(0,0);}
+function cancelMatForm(){S.showMatForm=false;S.matForm={...EMPTY_MAT};S.editMatId=null;render();}
+function readMatForm(){
+  return{...S.matForm,
+    denumire:document.getElementById("f-den")?.value||"",categorie:document.getElementById("f-cat")?.value||"",
+    um:document.getElementById("f-um")?.value||"kg",producator:document.getElementById("f-prod")?.value||"",
+    furnizor:document.getElementById("f-furn")?.value||"",timpLivrare:document.getElementById("f-livrare")?.value||"",
+    cantMin:document.getElementById("f-cantmin")?.value||"",tipPlata:document.getElementById("f-plata")?.value||"La termen",
+    sectie:document.getElementById("f-sec")?.value||"",stoc:parseFloat(document.getElementById("f-stoc")?.value)||0,
+    stocMin:parseFloat(document.getElementById("f-stocmin")?.value)||0,note:document.getElementById("f-note")?.value||""};
+}
+function saveMat(){
+  const f=readMatForm();const g=S.gest;
+  if(!f.denumire.trim()){showToast("⚠ Completati denumirea!");return;}
+  if(S.editMatId===null){DB.mats[g]=[...(DB.mats[g]||[]),{...f,id:Date.now()}];showToast("✅ Material adaugat!");}
+  else{DB.mats[g]=(DB.mats[g]||[]).map(m=>m.id===S.editMatId?{...f,id:S.editMatId}:m);showToast("✅ Actualizat!");}
+  saveDB();S.showMatForm=false;S.matForm={...EMPTY_MAT};S.editMatId=null;render();
+}
+function editMat(id){const m=(DB.mats[S.gest]||[]).find(m=>m.id===id);if(!m)return;S.matForm={...m};S.editMatId=id;S.showMatForm=true;render();window.scrollTo(0,0);}
+function delAsk(id){S.delConfirm=id;render();}function delCancel(){S.delConfirm=null;render();}
+function delMatOk(id){DB.mats[S.gest]=(DB.mats[S.gest]||[]).filter(m=>m.id!==id);saveDB();S.delConfirm=null;showToast("🗑 Sters!");render();}
+function mfSet(k,v){S.movForm[k]=v;render();}
+function logMov(){
+  const mf=S.movForm;const qty=parseFloat(mf.qty);const g=S.gest;
+  if(!mf.matId||!qty||qty<=0){showToast("⚠ Selectati material si cantitatea!");return;}
+  const mat=(DB.mats[g]||[]).find(m=>m.id==mf.matId);if(!mat)return;
+  const byVal=document.getElementById("m-by")?.value||mf.by||(getActiveUser()||{name:""}).name;
+  DB.mats[g]=(DB.mats[g]||[]).map(m=>{if(m.id==mf.matId){const ns=mf.type==="IN"?(m.stoc||0)+qty:Math.max(0,(m.stoc||0)-qty);return{...m,stoc:Math.round(ns*100)/100};}return m;});
+  const now=new Date();
+  DB.movs[g]=[...(DB.movs[g]||[]),{id:Date.now(),date:now.toISOString().slice(0,10),time:now.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),type:mf.type,matId:+mf.matId,matName:mat.denumire,um:mat.um,qty,ref:mf.ref,by:byVal}];
+  saveDB();S.movForm={matId:"",type:"IN",qty:"",ref:"",by:""};showToast(mf.type==="IN"?"✅ Receptie confirmata!":"📤 Consum inregistrat!");render();
+}
+function newUser(){S.userForm={...EMPTY_USER};S.editUserId=null;S.showUserForm=true;render();}
+function cancelUserForm(){S.showUserForm=false;S.userForm={...EMPTY_USER};S.editUserId=null;render();}
+function saveUser(){
+  const name=document.getElementById("u-name")?.value?.trim()||"";const role=document.getElementById("u-role")?.value||"operator";
+  if(!name){showToast("⚠ Introduceti numele!");return;}
+  if(S.editUserId===null){DB.users=[...DB.users,{id:Date.now(),name,role,active:true}];showToast("✅ Utilizator adaugat!");}
+  else{DB.users=DB.users.map(u=>u.id===S.editUserId?{...u,name,role}:u);showToast("✅ Actualizat!");}
+  saveDB();S.showUserForm=false;S.editUserId=null;render();
+}
+function editUser(id){const u=DB.users.find(u=>u.id===id);if(!u)return;S.userForm={...u};S.editUserId=id;S.showUserForm=true;render();}
+function delUserOk(id){if(id===S.activeUserId){showToast("Nu te poti sterge!");S.delUserConfirm=null;render();return;}DB.users=DB.users.filter(u=>u.id!==id);saveDB();S.delUserConfirm=null;showToast("🗑 Sters!");render();}
+function newGest(){S.gestForm={...EMPTY_GEST,color:nextGestColor()};S.showGestForm=true;render();}
+function cancelGestForm(){S.showGestForm=false;S.gestForm={...EMPTY_GEST};render();}
+function saveGest(){
+  const label=document.getElementById("g-label")?.value?.trim()||"";const color=document.getElementById("g-color")?.value||nextGestColor();
+  if(!label){showToast("Introduceti denumirea!");return;}
+  const id=makeGestId(label);const gest={id,label,color,bg:"#F3F6FA"};
+  DB.gestiuni=[...getGestiuni(),gest];DB.mats[id]=[];DB.movs[id]=[];
+  S.gest=id;S.tab="materiale";S.showGestForm=false;S.gestForm={...EMPTY_GEST};saveDB();showToast("Gestiune adaugata!");render();
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+loadDB().then(()=>{
+  S.loaded=true;
+  const savedId=parseInt(localStorage.getItem("fbr_uid")||"0");
+  if(savedId&&DB.users.find(u=>u.id===savedId&&u.active)){S.activeUserId=savedId;S.showLogin=false;const u=DB.users.find(u=>u.id===savedId);if(u)S.movForm.by=u.name;}
+  render();
+});
+</script>
+</body>
+</html>
